@@ -11,6 +11,7 @@ import { Label } from '../ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Plus, Search, Filter, Download, Eye, Edit, Trash2, Award } from 'lucide-react';
 import { serverRequest, supabase } from '@/utils/backend/client';
+import type { Doctor } from '@/interfaces/doctor';
 
 const doctorsData = [
     {
@@ -93,7 +94,7 @@ const certificatesData = [
 ];
 
 export function Doctors() {
-    const [doctors, setDoctors] = useState([]);
+    const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [specialtyFilter, setSpecialtyFilter] = useState('All');
