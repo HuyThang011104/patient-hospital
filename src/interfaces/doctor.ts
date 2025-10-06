@@ -1,4 +1,5 @@
 import type { DoctorRole, DoctorStatus, Gender } from "@/types";
+import type { ISpecialty } from "./specialty";
 
 export interface IDoctor {
   id: number;
@@ -11,7 +12,8 @@ export interface IDoctor {
   gender: Gender; // ENUM('Male','Female','Other')
   status: DoctorStatus; // ENUM('Active','Inactive','On_Leave')
   email: string | null;
-  join_date: Date | null; // date trong SQL
+  join_date: Date | null | ""; // date trong SQL
   role: DoctorRole; // ENUM('Admin','Doctor','Staff')
   address: string | null;
+  specialty: ISpecialty | null;
 }
