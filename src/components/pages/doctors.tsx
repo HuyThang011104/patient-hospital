@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -10,201 +11,254 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Label } from '../ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Plus, Search, Filter, Download, Eye, Edit, Trash2, Award } from 'lucide-react';
-import { serverRequest, supabase } from '@/utils/backend/client';
+import { supabase } from '@/utils/backend/client';
+import type { IDoctor } from '@/interfaces/doctor';
+import type { ICertificate } from '@/interfaces/certificate';
+import type { DoctorStatus } from '@/types';
+import type { ISpecialty } from '@/interfaces/specialty';
 
-const doctorsData = [
-    {
-        id: 1,
-        name: 'Dr. Emily Wilson',
-        specialty: 'Cardiology',
-        phone: '+1 (555) 111-2222',
-        email: 'emily.wilson@hospital.com',
-        certificates: ['Board Certified Cardiologist', 'ACLS Certification'],
-        status: 'Active',
-        avatar: '/api/placeholder/40/40'
-    },
-    {
-        id: 2,
-        name: 'Dr. Michael Davis',
-        specialty: 'Neurology',
-        phone: '+1 (555) 222-3333',
-        email: 'michael.davis@hospital.com',
-        certificates: ['Board Certified Neurologist', 'Epilepsy Specialist'],
-        status: 'Active',
-        avatar: '/api/placeholder/40/40'
-    },
-    {
-        id: 3,
-        name: 'Dr. Sarah Miller',
-        specialty: 'Pediatrics',
-        phone: '+1 (555) 333-4444',
-        email: 'sarah.miller@hospital.com',
-        certificates: ['Board Certified Pediatrician', 'Neonatal Care'],
-        status: 'On Leave',
-        avatar: '/api/placeholder/40/40'
-    },
-    {
-        id: 4,
-        name: 'Dr. James Garcia',
-        specialty: 'Orthopedics',
-        phone: '+1 (555) 444-5555',
-        email: 'james.garcia@hospital.com',
-        certificates: ['Orthopedic Surgery', 'Sports Medicine'],
-        status: 'Active',
-        avatar: '/api/placeholder/40/40'
-    },
-    {
-        id: 5,
-        name: 'Dr. Lisa Rodriguez',
-        specialty: 'Emergency Medicine',
-        phone: '+1 (555) 555-6666',
-        email: 'lisa.rodriguez@hospital.com',
-        certificates: ['Emergency Medicine', 'Trauma Certification'],
-        status: 'Inactive',
-        avatar: '/api/placeholder/40/40'
-    }
-];
-
-const certificatesData = [
-    {
-        id: 1,
-        doctorId: 1,
-        name: 'Board Certified Cardiologist',
-        issuedBy: 'American Board of Internal Medicine',
-        issueDate: '2018-06-15',
-        expiryDate: '2028-06-15'
-    },
-    {
-        id: 2,
-        doctorId: 1,
-        name: 'ACLS Certification',
-        issuedBy: 'American Heart Association',
-        issueDate: '2023-01-10',
-        expiryDate: '2025-01-10'
-    },
-    {
-        id: 3,
-        doctorId: 2,
-        name: 'Board Certified Neurologist',
-        issuedBy: 'American Board of Psychiatry and Neurology',
-        issueDate: '2019-08-20',
-        expiryDate: '2029-08-20'
-    }
-];
+// Interface cho state của form thêm bác sĩ
+interface NewDoctorState {
+    full_name: string;
+    username: string;
+    // specialty sẽ là string để chứa ID (từ Select) trước khi chuyển thành number
+    specialty: string;
+    phone: string;
+    email: string;
+    address: string;
+    status: DoctorStatus;
+    // Thêm các trường cần thiết khác cho bảng 'doctor' nếu bạn muốn chèn chúng
+    // Tuy nhiên, tôi sẽ để Supabase dùng các giá trị DEFAULT cho password, role, join_date...
+    // Nếu bạn muốn đặt password thủ công, bạn cần thêm nó vào đây
+    // password?: string; 
+}
 
 export function Doctors() {
-    const [doctors, setDoctors] = useState([]);
+    const [doctors, setDoctors] = useState<IDoctor[]>([]);
+    const [certificates, setCertificates] = useState<ICertificate[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [specialtyFilter, setSpecialtyFilter] = useState('All');
     const [statusFilter, setStatusFilter] = useState('All');
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-    const [selectedDoctor, setSelectedDoctor] = useState<number | null>(null);
-    const [newDoctor, setNewDoctor] = useState({
-        name: '',
-        specialty: '',
+    const [addDoctorError, setAddDoctorError] = useState<string | null>(null);
+
+    // Cập nhật state newDoctor để bao gồm tất cả các trường trong form
+    const [newDoctor, setNewDoctor] = useState<NewDoctorState>({
+        full_name: '',
+        username: '',
+        specialty: '', // Lưu ID chuyên khoa
         phone: '',
         email: '',
-        license: '',
-        experience: '',
-        certificates: '',
-        status: 'Active'
+        address: '',
+        status: 'Active',
     });
 
+    // Hàm chung để cập nhật state form
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { id, value } = e.target;
+        setNewDoctor(prev => ({
+            ...prev,
+            [id]: id === 'experience' ? parseInt(value) || '' : value
+        }));
+    };
+
+    // Hàm cho Select Component (thường có API khác)
+    const handleSelectChange = (id: keyof NewDoctorState, value: string) => {
+        setNewDoctor(prev => ({ ...prev, [id]: value }));
+    };
+
+    // --- FETCH DATA ---
+
     useEffect(() => {
+        // Cả hai hàm fetch đều gọi setLoading(false), nên không cần logic phức tạp hơn
+        // Tuy nhiên, việc này có thể gây lỗi nếu một trong hai fetch thất bại hoặc chậm hơn
+        // Tôi sẽ giữ nguyên logic cũ vì nó đủ cho mục đích ví dụ này
         fetchDoctors();
+        fetchCertificates();
     }, []);
 
-    // const fetchDoctors = async () => {
-    //     try {
-    //         const response = await serverRequest('/doctors');
-    //         console.log('Fetched doctors:', response);
-    //         setDoctors(response.doctors || []);
-    //     } catch (error) {
-    //         console.error('Error fetching doctors:', error);
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // };
     const fetchDoctors = async () => {
+        setLoading(true);
         try {
+            // Liên kết bảng specialty và chỉ chọn các cột cần thiết từ specialty
             const { data, error } = await supabase
                 .from('doctor')
-                .select(`  *,specialty ( * )`);
-            if (error) console.error(error);
-            else console.log(data);
-            setDoctors(data || []);
+                .select(`
+                    id, specialty_id, full_name, username, phone, email, address, status,
+                    specialty ( id, name, description )
+                `);
+            if (error) throw error;
+            setDoctors(data as unknown as IDoctor[]);
         } catch (error) {
             console.error('Error fetching doctors:', error);
+            // Có thể thêm state lỗi cho người dùng
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchCertificates = async () => {
+        // Bỏ setLoading(true) ở đây để tránh ghi đè kết quả của fetchDoctors
+        try {
+            const { data, error } = await supabase.from('certificate').select('*');
+            if (error) throw error;
+            setCertificates(data || []);
+        } catch (error) {
+            console.error('Error fetching certificates:', error);
+        }
+        // Giữ lại setLoading(false) trong fetchDoctors để quản lý trạng thái tải chính
+    };
+
+
+    // --- ADD DOCTOR LOGIC ---
+
+    const resetNewDoctorState = () => {
+        setNewDoctor({
+            full_name: '',
+            username: '',
+            specialty: '',
+            phone: '',
+            email: '',
+            address: '',
+            status: 'Active',
+        });
+        setAddDoctorError(null);
+    }
 
     const handleAddDoctor = async () => {
-        try {
-            const response = await serverRequest('/doctors', {
-                method: 'POST',
-                body: JSON.stringify({
-                    ...newDoctor,
-                    certificates: newDoctor.certificates.split(',').map(cert => cert.trim())
-                })
-            });
+        setAddDoctorError(null);
 
-            setDoctors([...doctors, response.doctor]);
+        // Kiểm tra validation cơ bản
+        if (!newDoctor.full_name || !newDoctor.username || !newDoctor.specialty || !newDoctor.email) {
+            setAddDoctorError("Please fill in all required fields (Full Name, Username, Specialty, Email).");
+            return;
+        }
+
+        try {
+            // 1. Chuẩn bị dữ liệu để chèn
+            // Loại bỏ các trường chỉ dùng cho giao diện hoặc không thuộc bảng `doctor`
+            const { specialty, ...baseDoctorData } = newDoctor;
+
+            // Chuyển đổi 'On Leave' thành 'On_Leave' để khớp với ENUM của DB (nếu bạn sử dụng nó)
+            const statusForDB = (
+                (baseDoctorData.status as string) === 'On Leave'
+                    ? 'On_Leave'
+                    : baseDoctorData.status
+            ) as DoctorStatus;
+
+            const doctorDataToInsert = {
+                ...baseDoctorData,
+                // CHỈ GỬI CÁC TRƯỜNG CÓ TRONG BẢNG `doctor`
+                specialty_id: parseInt(specialty, 10), // Chuyển specialty_id từ string sang number
+                status: statusForDB, // Sử dụng giá trị đã chuyển đổi
+                // Các trường mặc định khác: password (Supabase Auth?), role, join_date... sẽ dùng DEFAULT của DB
+
+                // THÊM: Nếu bạn cần chèn password, hãy thêm logic tạo password ở đây:
+                password: 'DEFAULT_PASSWORD_HASH', // **Bạn cần xử lý password an toàn ở Backend/Auth Service**
+                // role: 'Doctor' // Sử dụng giá trị mặc định của DB nếu không gửi
+            };
+
+            const { data, error } = await supabase
+                .from('doctor')
+                .insert([doctorDataToInsert])
+                .select(`
+                id, specialty_id, full_name, username, phone, email, address, status,
+                specialty ( id, name, description )
+            `); // Chọn lại để có specialty object
+
+            if (error) {
+                console.error('Supabase error adding doctor:', error);
+                throw new Error(error.message);
+            }
+
+            const addedDoctor = data[0] as unknown as IDoctor;
+
+            // Thêm bác sĩ mới vào danh sách hiện tại
+            setDoctors(prevDoctors => [...prevDoctors, addedDoctor]);
+
+            // Đóng dialog và reset form
             setIsAddDialogOpen(false);
-            setNewDoctor({
-                name: '',
-                specialty: '',
-                phone: '',
-                email: '',
-                license: '',
-                experience: '',
-                certificates: '',
-                status: 'Active'
-            });
-        } catch (error) {
+            resetNewDoctorState();
+
+            // 2. Xử lý thêm license/certificate (nếu cần)
+            // Nếu có bảng 'doctor_license' hoặc 'certificate_details' riêng biệt, 
+            // bạn sẽ chèn dữ liệu license_number và experience vào đó, sử dụng addedDoctor.id
+            console.log('Doctor added successfully:', addedDoctor);
+
+        } catch (error: any) {
             console.error('Error adding doctor:', error);
+            setAddDoctorError(`Failed to add doctor: ${error.message || 'Unknown error'}`);
         }
     };
+
+
+    // --- FILTER & DISPLAY LOGIC ---
+
+    // Lấy danh sách chuyên khoa duy nhất
+    const uniqueSpecialties = Array.from(new Set(doctors
+        .map(doctor => doctor.specialty)
+        .filter((s): s is ISpecialty => !!s)
+        .map(s => JSON.stringify({ id: s.id, name: s.name }))
+    )).map(s => JSON.parse(s) as ISpecialty);
+
 
     const filteredDoctors = doctors.filter(doctor => {
         if (!doctor || typeof doctor !== 'object') return false;
 
-        const name = doctor.name || '';
-        const specialty = doctor.specialty || '';
+        const name = doctor.full_name || doctor.username || '';
         const email = doctor.email || '';
-        const status = doctor.status || '';
-
+        const specialtyName = doctor.specialty?.name || '';
+        // 1. Lọc theo thanh tìm kiếm (Tên hoặc Email)
         const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
             email.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesSpecialty = specialtyFilter === 'All' || specialty === specialtyFilter;
-        const matchesStatus = statusFilter === 'All' || status === statusFilter;
+
+        // 2. Lọc theo Chuyên khoa (dùng ID hoặc Name tùy thuộc vào specialtyFilter)
+        // Nếu specialtyFilter là 'All' hoặc trùng tên/ID chuyên khoa
+        const matchesSpecialty = specialtyFilter === 'All' ||
+            specialtyName.toLowerCase() === specialtyFilter.toLowerCase() ||
+            (doctor.specialty_id && specialtyFilter === doctor.specialty_id.toString());
+
+        // 3. Lọc theo Trạng thái
+        const normalizedStatusFilter = statusFilter === 'On Leave' ? 'On_Leave' : statusFilter;
+        const matchesStatus = statusFilter === 'All' || doctor.status === normalizedStatusFilter;
+
+        return matchesSearch && matchesSpecialty && matchesStatus;
 
         return matchesSearch && matchesSpecialty && matchesStatus;
     });
 
-    const getStatusBadge = (status: string) => {
-        const variant = status === 'Active' ? 'default' :
-            status === 'On Leave' ? 'secondary' : 'destructive';
-        return <Badge variant={variant}>{status}</Badge>;
-    };
+    const getStatusBadge = (status: DoctorStatus) => {
+        // Chuyển 'On_Leave' thành 'On Leave' để hiển thị
+        const displayStatus = status.replace('_', ' ');
 
-    const specialties = [...new Set(doctorsData.map(doctor => doctor.specialty))];
+        const variant = status === 'Active' ? 'default' :
+            // So sánh với ENUM value 'On_Leave'
+            status === 'On_Leave' ? 'secondary' : 'destructive';
+
+        return <Badge variant={variant}>{displayStatus}</Badge>;
+    };
+    // --- RENDER ---
+
+    if (loading) {
+        return <div className="text-center py-10">Loading doctors and certificates...</div>;
+    }
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1>Doctor Management</h1>
+                    <h1 className="text-3xl font-bold">Doctor Management</h1>
                     <p className="text-muted-foreground">
                         Manage doctor profiles and certifications
                     </p>
                 </div>
 
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                {/* --- ADD DOCTOR DIALOG --- */}
+                <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+                    setIsAddDialogOpen(open);
+                    if (!open) resetNewDoctorState(); // Reset form khi đóng
+                }}>
                     <DialogTrigger asChild>
                         <Button>
                             <Plus className="mr-2 h-4 w-4" />
@@ -216,70 +270,123 @@ export function Doctors() {
                             <DialogTitle>Add New Doctor</DialogTitle>
                         </DialogHeader>
                         <div className="grid grid-cols-2 gap-4 py-4">
+                            {/* Full Name */}
                             <div className="space-y-2">
-                                <Label htmlFor="doctorName">Full Name</Label>
-                                <Input id="doctorName" placeholder="Dr. John Doe" />
+                                <Label htmlFor="full_name">Full Name</Label>
+                                <Input
+                                    id="full_name"
+                                    placeholder="Dr. John Doe"
+                                    value={newDoctor.full_name}
+                                    onChange={handleInputChange}
+                                />
                             </div>
+                            {/* Username */}
+                            <div className="space-y-2">
+                                <Label htmlFor="username">Username</Label>
+                                <Input
+                                    id="username"
+                                    placeholder="john.doe"
+                                    value={newDoctor.username}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            {/* Specialty */}
                             <div className="space-y-2">
                                 <Label htmlFor="specialty">Specialty</Label>
-                                <Select>
-                                    <SelectTrigger>
+                                <Select
+                                    value={newDoctor.specialty}
+                                    onValueChange={(val) => handleSelectChange('specialty', val)}
+                                >
+                                    <SelectTrigger id="specialty">
                                         <SelectValue placeholder="Select specialty" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="cardiology">Cardiology</SelectItem>
-                                        <SelectItem value="neurology">Neurology</SelectItem>
-                                        <SelectItem value="pediatrics">Pediatrics</SelectItem>
-                                        <SelectItem value="orthopedics">Orthopedics</SelectItem>
-                                        <SelectItem value="emergency">Emergency Medicine</SelectItem>
+                                        {uniqueSpecialties.map(s => (
+                                            <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
+                            {/* Phone Number */}
                             <div className="space-y-2">
-                                <Label htmlFor="doctorPhone">Phone Number</Label>
-                                <Input id="doctorPhone" placeholder="Enter phone number" />
+                                <Label htmlFor="phone">Phone Number</Label>
+                                <Input
+                                    id="phone"
+                                    placeholder="Enter phone number"
+                                    value={newDoctor.phone}
+                                    onChange={handleInputChange}
+                                />
                             </div>
+                            {/* Email */}
                             <div className="space-y-2">
-                                <Label htmlFor="doctorEmail">Email</Label>
-                                <Input id="doctorEmail" type="email" placeholder="Enter email address" />
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="Enter email address"
+                                    value={newDoctor.email}
+                                    onChange={handleInputChange}
+                                />
                             </div>
+                            {/* Address */}
                             <div className="space-y-2">
-                                <Label htmlFor="license">License Number</Label>
-                                <Input id="license" placeholder="Enter license number" />
+                                <Label htmlFor="address">Address</Label>
+                                <Input
+                                    id="address"
+                                    placeholder="123 Main St"
+                                    value={newDoctor.address}
+                                    onChange={handleInputChange}
+                                />
                             </div>
+
+                            {/* Status */}
                             <div className="space-y-2">
-                                <Label htmlFor="experience">Years of Experience</Label>
-                                <Input id="experience" type="number" placeholder="Enter experience years" />
-                            </div>
-                            <div className="col-span-2 space-y-2">
-                                <Label htmlFor="certifications">Certifications (comma separated)</Label>
-                                <Input id="certifications" placeholder="Board Certification, ACLS, etc." />
+                                <Label htmlFor="specialty">Status</Label>
+                                <Select
+                                    value={newDoctor.status}
+                                    onValueChange={(val) => handleSelectChange('status', val as DoctorStatus)}
+                                >
+                                    <SelectTrigger id="status">
+                                        <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Active">Active</SelectItem>
+                                        {/* Sửa value từ "On Leave" thành "On_Leave" để khớp với DB ENUM */}
+                                        <SelectItem value="On_Leave">On Leave</SelectItem>
+                                        <SelectItem value="Inactive">Inactive</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
+                        {addDoctorError && (
+                            <p className="text-red-500 text-sm mt-2">{addDoctorError}</p>
+                        )}
                         <div className="flex justify-end space-x-2">
                             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                                 Cancel
                             </Button>
-                            <Button onClick={() => setIsAddDialogOpen(false)}>
+                            <Button onClick={handleAddDoctor}>
                                 Add Doctor
                             </Button>
                         </div>
                     </DialogContent>
                 </Dialog>
             </div>
-
+            {/* --- TABS --- */}
             <Tabs defaultValue="doctors" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="doctors">Doctors</TabsTrigger>
-                    <TabsTrigger value="certificates">Certificates</TabsTrigger>
+                    <TabsTrigger value="certificates">Certificates ({certificates.length})</TabsTrigger>
                 </TabsList>
 
+                {/* --- DOCTORS TAB CONTENT --- */}
                 <TabsContent value="doctors">
                     <Card>
                         <CardHeader>
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
-                                <CardTitle>All Doctors</CardTitle>
+                                <CardTitle>All Doctors ({filteredDoctors.length})</CardTitle>
                                 <div className="flex flex-col sm:flex-row gap-2">
+                                    {/* Search Input */}
                                     <div className="relative">
                                         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                         <Input
@@ -289,26 +396,29 @@ export function Doctors() {
                                             className="pl-8 w-64"
                                         />
                                     </div>
+                                    {/* Specialty Filter */}
                                     <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
                                         <SelectTrigger className="w-40">
                                             <Filter className="mr-2 h-4 w-4" />
-                                            <SelectValue />
+                                            <SelectValue placeholder="Specialty" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="All">All Specialties</SelectItem>
-                                            {specialties.map(specialty => (
-                                                <SelectItem key={specialty} value={specialty}>{specialty}</SelectItem>
+                                            {uniqueSpecialties.map(s => (
+                                                <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                    {/* Status Filter */}
                                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                                         <SelectTrigger className="w-32">
-                                            <SelectValue />
+                                            <SelectValue placeholder="Status" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="All">All Status</SelectItem>
                                             <SelectItem value="Active">Active</SelectItem>
-                                            <SelectItem value="On Leave">On Leave</SelectItem>
+                                            {/* Sửa value từ "On Leave" thành "On_Leave" */}
+                                            <SelectItem value="On_Leave">On Leave</SelectItem>
                                             <SelectItem value="Inactive">Inactive</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -328,7 +438,6 @@ export function Doctors() {
                                             <TableHead>Specialty</TableHead>
                                             <TableHead>Phone</TableHead>
                                             <TableHead>Email</TableHead>
-                                            <TableHead>Certificates</TableHead>
                                             <TableHead>Status</TableHead>
                                             <TableHead>Actions</TableHead>
                                         </TableRow>
@@ -340,44 +449,45 @@ export function Doctors() {
                                                     <div className="flex items-center space-x-3">
                                                         <Avatar>
                                                             <AvatarImage src="https://uxwing.com/wp-content/themes/uxwing/download/peoples-avatars/default-avatar-profile-picture-male-icon.png" />
-                                                            <AvatarFallback>{doctor.name}</AvatarFallback>
+                                                            <AvatarFallback>{doctor.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                                                         </Avatar>
-                                                        <span>{doctor.name}</span>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium">{doctor.full_name}</span>
+                                                            <span className="text-sm text-muted-foreground">@{doctor.username}</span>
+                                                        </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>{doctor.specialty?.name} - {doctor.specialty?.description}</TableCell>
+                                                <TableCell className="max-w-xs truncate">
+                                                    <span className="font-medium">{doctor.specialty?.name}</span>
+                                                    <span className="text-sm text-muted-foreground block" title={doctor?.specialty?.description || ''}>
+                                                        {doctor?.specialty?.description?.substring(0, 30) || ''}
+                                                    </span>
+                                                </TableCell>
                                                 <TableCell>{doctor.phone}</TableCell>
                                                 <TableCell>{doctor.email}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {/* {doctor.certificates.slice(0, 2).map((cert, index) => (
-                                                            <Badge key={index} variant="outline" className="text-xs">
-                                                                {cert}
-                                                            </Badge>
-                                                        ))}
-                                                        {doctor.certificates.length > 2 && (
-                                                            <Badge variant="outline" className="text-xs">
-                                                                +{doctor.certificates.length - 2} more
-                                                            </Badge>
-                                                        )} */}
-                                                    </div>
-                                                </TableCell>
                                                 <TableCell>{getStatusBadge(doctor.status)}</TableCell>
                                                 <TableCell>
                                                     <div className="flex space-x-1">
-                                                        <Button variant="ghost" size="sm">
+                                                        <Button variant="ghost" size="sm" title="View">
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="ghost" size="sm">
+                                                        <Button variant="ghost" size="sm" title="Edit">
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="ghost" size="sm">
-                                                            <Trash2 className="h-4 w-4" />
+                                                        <Button variant="ghost" size="sm" title="Delete">
+                                                            <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
                                                         </Button>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
+                                        {filteredDoctors.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                                                    No doctors found matching your criteria.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -385,12 +495,13 @@ export function Doctors() {
                     </Card>
                 </TabsContent>
 
+                {/* --- CERTIFICATES TAB CONTENT --- */}
                 <TabsContent value="certificates">
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center">
                                 <Award className="mr-2 h-5 w-5" />
-                                Doctor Certificates
+                                Doctor Certificates ({certificates.length})
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -407,26 +518,28 @@ export function Doctors() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {certificatesData.map((cert) => {
-                                            const doctor = doctorsData.find(d => d.id === cert.doctorId);
-                                            const isExpiringSoon = new Date(cert.expiryDate) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-                                            const isExpired = new Date(cert.expiryDate) < new Date();
+                                        {certificates.map(cert => {
+                                            const doctor = doctors.find(d => d.id === cert.doctor_id);
+                                            const today = new Date();
+                                            const expiryDate = cert.expiry_date ? new Date(cert.expiry_date) : null;
+
+                                            const isExpired = expiryDate ? expiryDate < today : false;
+                                            const isExpiringSoon = expiryDate
+                                                ? expiryDate > today && expiryDate < new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000)
+                                                : false;
+
 
                                             return (
                                                 <TableRow key={cert.id}>
-                                                    <TableCell>
-                                                        <div className="flex items-center space-x-3">
-                                                            <Avatar className="h-8 w-8">
-                                                                <AvatarImage src={doctor?.avatar} />
-                                                                <AvatarFallback>{doctor?.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                                            </Avatar>
-                                                            <span>{doctor?.name}</span>
-                                                        </div>
-                                                    </TableCell>
+                                                    <TableCell>{doctor?.full_name || 'N/A'}</TableCell>
                                                     <TableCell>{cert.name}</TableCell>
-                                                    <TableCell>{cert.issuedBy}</TableCell>
-                                                    <TableCell>{cert.issueDate}</TableCell>
-                                                    <TableCell>{cert.expiryDate}</TableCell>
+                                                    <TableCell>{cert.issued_by}</TableCell>
+                                                    <TableCell>
+                                                        {cert.issue_date ? new Date(cert.issue_date).toLocaleDateString() : '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {cert.expiry_date ? new Date(cert.expiry_date).toLocaleDateString() : '—'}
+                                                    </TableCell>
                                                     <TableCell>
                                                         <Badge variant={
                                                             isExpired ? 'destructive' :

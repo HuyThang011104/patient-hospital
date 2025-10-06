@@ -8,10 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Label } from '../ui/label';
 import { Plus, Search, Filter, Download, Eye, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { serverRequest } from '@/utils/backend/client';
+import type { IPatient } from '@/interfaces/patient';
 
 export function Patients() {
-    const [patients, setPatients] = useState([]);
+    const [patients, setPatients] = useState<IPatient[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
@@ -36,61 +36,22 @@ export function Patients() {
     }, []);
 
     const fetchPatients = async () => {
-        try {
-            const response = await serverRequest('/patients');
-            setPatients(response.patients || []);
-        } catch (error) {
-            console.error('Error fetching patients:', error);
-        } finally {
-            setLoading(false);
-        }
+
     };
 
     const handleAddPatient = async () => {
-        try {
-            const response = await serverRequest('/patients', {
-                method: 'POST',
-                body: JSON.stringify({
-                    ...newPatient,
-                    status: 'Active'
-                })
-            });
 
-            setPatients([...patients, response.patient]);
-            setIsAddDialogOpen(false);
-            setNewPatient({
-                name: '',
-                personalId: '',
-                phone: '',
-                email: '',
-                gender: '',
-                birthDate: '',
-                address: '',
-                password: '',
-                joinDate: new Date().toISOString().split('T')[0]
-            });
-        } catch (error) {
-            console.error('Error adding patient:', error);
-        }
     };
 
     const handleDeletePatient = async (patientId: string) => {
-        try {
-            await serverRequest(`/patients/${patientId}`, {
-                method: 'DELETE'
-            });
 
-            setPatients(patients.filter(p => p.id !== `patient:${patientId}`));
-        } catch (error) {
-            console.error('Error deleting patient:', error);
-        }
     };
 
     const filteredPatients = patients.filter(patient => {
         if (!patient || typeof patient !== 'object') return false;
 
-        const name = patient.name || '';
-        const personalId = patient.personalId || '';
+        const name = patient.full_name || '';
+        const personalId = patient.personal_id || '';
         const email = patient.email || '';
         const status = patient.status || '';
         const gender = patient.gender || '';
@@ -318,12 +279,14 @@ export function Patients() {
                                 ) : (
                                     paginatedPatients.map((patient) => (
                                         <TableRow key={patient.id}>
-                                            <TableCell>{patient.name}</TableCell>
-                                            <TableCell>{patient.personalId}</TableCell>
+                                            <TableCell>{patient.full_name}</TableCell>
+                                            <TableCell>{patient.personal_id}</TableCell>
                                             <TableCell>{patient.phone}</TableCell>
                                             <TableCell>{patient.email}</TableCell>
                                             <TableCell>{patient.gender}</TableCell>
-                                            <TableCell>{patient.birthDate}</TableCell>
+                                            <TableCell>
+                                                {patient.birth_date ? patient.birth_date.toLocaleDateString() : ''}
+                                            </TableCell>
                                             <TableCell>{getStatusBadge(patient.status)}</TableCell>
                                             <TableCell>
                                                 <div className="flex space-x-1">
