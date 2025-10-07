@@ -1,4 +1,7 @@
 import type { AppointmentStatus } from "@/types";
+import type { IDoctor } from "./doctor";
+import type { IShift } from "./shift";
+import type { IPatient } from "./patient";
 
 export interface IAppointment {
   id: number;
@@ -8,4 +11,7 @@ export interface IAppointment {
   shift_id: number | null;
   status: AppointmentStatus; // ENUM('Pending','Completed','Cancelled')
   notes: string | null;
+  doctor: IDoctor;
+  shift: IShift;
+  patient: IPatient;
 }

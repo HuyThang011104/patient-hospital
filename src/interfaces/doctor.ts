@@ -2,8 +2,8 @@ import type { DoctorRole, DoctorStatus, Gender } from "@/types";
 import type { ISpecialty } from "./specialty";
 
 export interface IDoctor {
-  id: number;
-  specialty_id: number;
+  id: string;
+  specialty_id: string;
   full_name: string;
   username: string;
   password: string;

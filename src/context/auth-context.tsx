@@ -1,73 +1,159 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-refresh/only-export-components */
 import type { Patient } from '@/interfaces';
-import { createContext, useState, type ReactNode } from 'react';
+import { supabase } from '@/utils/backend/client';
+import { createContext, useState, useEffect, type ReactNode } from 'react';
 
 interface AuthContextType {
     user: Patient | null;
     isAuthenticated: boolean;
     login: (email: string, password: string) => Promise<boolean>;
-    register: (userData: Partial<Patient>) => Promise<boolean>;
+    register: (userData: RegisterData) => Promise<boolean>;
     logout: () => void;
-    updateProfile: (userData: Partial<Patient>) => Promise<boolean>;
+    updateProfile: (userData: Partial<Omit<Patient, 'id' | 'email'>>) => Promise<boolean>;
 }
 
+// Kiểu dữ liệu cho đăng ký (bao gồm password)
+interface RegisterData extends Omit<Patient, 'id'> {
+    password: string; // Cần thiết cho đăng ký
+}
+
+// Khởi tạo Context
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+
+// Key dùng để lưu ID người dùng vào localStorage
+const USER_STORAGE_KEY = 'patient_user_id';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<Patient | null>(null);
+    const [loading, setLoading] = useState(true);
 
+    // --- Khởi tạo: Tải người dùng từ Local Storage ---
+    useEffect(() => {
+        const loadUser = async () => {
+            const userId = localStorage.getItem(USER_STORAGE_KEY);
+            if (userId) {
+                // Truy vấn bảng patients bằng ID đã lưu
+                const { data, error } = await supabase
+                    .from('patient')
+                    .select('*')
+                    .eq('id', userId)
+                    .limit(1)
+                    .single();
+
+                if (data && !error) {
+                    // Loại bỏ trường password trước khi lưu vào state
+                    const { password, ...patientData } = data;
+                    setUser(patientData as Patient);
+                } else {
+                    console.error('Error loading stored user:', error);
+                    localStorage.removeItem(USER_STORAGE_KEY); // Xóa ID lỗi
+                }
+            }
+            setLoading(false);
+        };
+
+        loadUser();
+    }, []);
+
+    // --- Hàm Đăng nhập ---
     const login = async (email: string, password: string): Promise<boolean> => {
-        // Mock login - in real app, this would call an API
-        if (email === 'john.smith@email.com' && password === 'password') {
-            const mockUser: Patient = {
-                id: '1',
-                full_name: 'John Smith',
-                personal_id: 'ID123456789',
-                birth_date: '1985-06-15',
-                gender: 'Male',
-                phone: '+1 (555) 123-4567',
-                address: '123 Main Street, Springfield, IL 62701',
-                email: 'john.smith@email.com',
-                insurance_provider: 'Blue Cross Blue Shield',
-                policy_number: 'BC12345678',
-                insurance_validity: '2025-12-31'
-            };
-            setUser(mockUser);
+        const { data, error } = await supabase
+            .from('patient')
+            .select('*')
+            .eq('email', email)
+            .eq('password', password)
+            .limit(1)
+            .single();
+
+        if (error) {
+            console.error('Login failed or user not found:', error);
+            return false;
+        }
+
+        if (data) {
+            const patientData = data as Patient;
+
+            localStorage.setItem(USER_STORAGE_KEY, patientData.id);
+            setUser(patientData);
             return true;
         }
-        return false;
+
+        return false; // Không khớp email/password
     };
 
-    const register = async (userData: Partial<Patient>): Promise<boolean> => {
-        // Mock registration - in real app, this would call an API
-        const newUser: Patient = {
-            id: Date.now().toString(),
-            full_name: userData.full_name || '',
-            personal_id: userData.personal_id || '',
-            birth_date: userData.birth_date || '',
-            gender: userData.gender || 'Male',
-            phone: userData.phone || '',
-            address: userData.address || '',
-            email: userData.email || '',
-            insurance_provider: userData.insurance_provider,
-            policy_number: userData.policy_number,
-            insurance_validity: userData.insurance_validity
+    // --- Hàm Đăng ký ---
+    const register = async (userData: RegisterData): Promise<boolean> => {
+        const { password, ...patientData } = userData;
+
+        // 1. Kiểm tra email đã tồn tại chưa
+        const { data: existingUser } = await supabase
+            .from('patients')
+            .select('id')
+            .eq('email', patientData.email)
+            .limit(1);
+
+        if (existingUser && existingUser.length > 0) {
+            console.error('Registration error: Email already exists.');
+            return false;
+        }
+
+        // 2. Chèn người dùng mới vào bảng 'patients'
+        const newUser: Patient & { password: string; id: string } = {
+            ...patientData,
+            id: crypto.randomUUID(), // Tạo ID duy nhất mới
+            password: password, // LƯU Ý BẢO MẬT: Mật khẩu chưa được băm!
         };
-        setUser(newUser);
+
+        const { error: insertError } = await supabase
+            .from('patients')
+            .insert(newUser);
+
+        if (insertError) {
+            console.error('Error registering patient:', insertError.message);
+            return false;
+        }
+
+        // 3. Đăng nhập người dùng sau khi đăng ký thành công
+        localStorage.setItem(USER_STORAGE_KEY, newUser.id);
+
+        // Loại bỏ password trước khi lưu vào state
+        const { password: _, ...userWithoutPassword } = newUser;
+        setUser(userWithoutPassword);
         return true;
     };
 
+    // --- Hàm Đăng xuất ---
     const logout = () => {
+        localStorage.removeItem(USER_STORAGE_KEY);
         setUser(null);
     };
 
-    const updateProfile = async (userData: Partial<Patient>): Promise<boolean> => {
-        if (user) {
-            setUser({ ...user, ...userData });
-            return true;
+    // --- Hàm Cập nhật Hồ sơ ---
+    const updateProfile = async (userData: Partial<Omit<Patient, 'id' | 'email'>>): Promise<boolean> => {
+        if (!user) return false;
+
+        const { error: updateError } = await supabase
+            .from('patients')
+            .update(userData)
+            .eq('id', user.id); // Cập nhật dựa trên ID người dùng hiện tại
+
+        if (updateError) {
+            console.error('Profile update error:', updateError.message);
+            return false;
         }
-        return false;
+
+        // Cập nhật trạng thái người dùng trong ứng dụng
+        setUser({ ...user, ...userData });
+        return true;
     };
+
+
+    if (loading) {
+        // Hiển thị màn hình tải trong khi kiểm tra Local Storage
+        return <div>Loading authentication...</div>;
+    }
 
     return (
         <AuthContext.Provider value={{
@@ -82,4 +168,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         </AuthContext.Provider>
     );
 }
-

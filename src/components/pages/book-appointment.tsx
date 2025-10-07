@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -7,20 +7,28 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
 import { ChevronLeft, ChevronRight, Clock, User, MapPin } from 'lucide-react';
-import { mockDepartments, mockDoctors } from '@/utils/mock/mock-data';
 import { toast } from 'sonner';
+import { supabase } from '@/utils/backend/client';
+import type { ISpecialty } from '@/interfaces/specialty';
+import type { IDoctor } from '@/interfaces/doctor';
+import type { IShift } from '@/interfaces/shift';
+import { useAuth } from '@/hooks/use-auth';
 
 interface BookAppointmentProps {
     onPageChange: (page: string) => void;
 }
 
 export function BookAppointment({ onPageChange }: BookAppointmentProps) {
+    const [doctors, setDoctors] = useState<IDoctor[]>([]);
+    const [specialty, setSpecialty] = useState<ISpecialty[]>([]);
+    const [shifts, setShifts] = useState<IShift[]>([]);
     const [currentStep, setCurrentStep] = useState(1);
     const [selectedDepartment, setSelectedDepartment] = useState('');
     const [selectedDoctor, setSelectedDoctor] = useState('');
     const [selectedDate, setSelectedDate] = useState<Date>();
     const [selectedShift, setSelectedShift] = useState('');
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const { user } = useAuth();
 
     const steps = [
         { number: 1, title: 'Select Department', description: 'Choose medical department' },
@@ -29,11 +37,63 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
         { number: 4, title: 'Confirm Appointment', description: 'Review and confirm' }
     ];
 
-    const filteredDoctors = mockDoctors.filter(doctor =>
-        doctor.department_id === selectedDepartment
+    useEffect(() => {
+        fetchDoctors()
+        fetchSpecialties()
+        fetchShifts()
+    }, [])
+
+    const fetchDoctors = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('doctor')
+                .select(`
+                   *,
+                    specialty (* )
+                `);
+            if (error) throw error;
+            console.log("doctor", data)
+            setDoctors(data as unknown as IDoctor[]);
+        } catch (error) {
+            console.error('Error fetching doctors:', error);
+        }
+    };
+
+    const fetchSpecialties = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('specialty')
+                .select(`
+                    *
+                `);
+            if (error) throw error;
+            console.log("specialty", data)
+            setSpecialty(data as unknown as ISpecialty[]);
+        } catch (error) {
+            console.error('Error fetching specialties:', error);
+        }
+    };
+
+    const fetchShifts = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('shift')
+                .select(`
+                    *
+                `);
+            console.log("shifts", data)
+            if (error) throw error;
+            setShifts(data as unknown as IShift[]);
+        } catch (error) {
+            console.error('Error fetching shifts:', error);
+        }
+    }
+
+    const filteredDoctors = doctors.filter(doctor =>
+        doctor.specialty_id === selectedDepartment
     );
 
-    const selectedDoctorData = mockDoctors.find(doctor => doctor.id === selectedDoctor);
+    const selectedDoctorData = doctors.find(doctor => doctor.id === selectedDoctor);
 
     const handleNext = () => {
         if (currentStep < 4) {
@@ -49,12 +109,34 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
         }
     };
 
-    const handleConfirmAppointment = () => {
-        // In a real app, this would call an API
-        toast.success('Appointment booked successfully!');
-        setShowConfirmation(false);
-        onPageChange('my-appointments');
+    const handleConfirmAppointment = async () => {
+        try {
+            const { error } = await supabase.from('appointment').insert([
+                {
+                    patient_id: user?.id,
+                    doctor_id: selectedDoctor,
+                    shift_id: shifts.find((shift) => shift.name === selectedShift)?.id,
+                    appointment_date: selectedDate,
+                    status: 'Pending',
+                    notes: null,
+                },
+            ]);
+
+            if (error) {
+                console.error('Error booking appointment:', error);
+                toast.error('Failed to book appointment. Please try again.');
+                return;
+            }
+
+            toast.success('Appointment booked successfully!');
+            setShowConfirmation(false);
+            onPageChange('my-appointments');
+        } catch (error) {
+            console.error('Unexpected error booking appointment:', error);
+            toast.error('An unexpected error occurred. Please try again.');
+        }
     };
+
 
     const canProceed = () => {
         switch (currentStep) {
@@ -71,8 +153,8 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
             {steps.map((step, index) => (
                 <div key={step.number} className="flex items-center">
                     <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${step.number <= currentStep
-                            ? 'bg-blue-600 border-blue-600 text-white'
-                            : 'border-gray-300 text-gray-400'
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'border-gray-300 text-gray-400'
                         }`}>
                         {step.number}
                     </div>
@@ -98,7 +180,7 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
             <p className="text-muted-foreground">Choose the medical department for your appointment</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {mockDepartments.map((department) => (
+                {specialty.map((department) => (
                     <Card
                         key={department.id}
                         className={`cursor-pointer transition-all hover:shadow-md ${selectedDepartment === department.id ? 'ring-2 ring-blue-600 bg-blue-50' : ''
@@ -125,7 +207,7 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
     const renderStep2 = () => (
         <div className="space-y-4">
             <h2>Select Doctor</h2>
-            <p className="text-muted-foreground">Choose your preferred doctor from {mockDepartments.find(d => d.id === selectedDepartment)?.name}</p>
+            <p className="text-muted-foreground">Choose your preferred doctor from {specialty.find(d => d.id === selectedDepartment)?.name}</p>
 
             <div className="grid grid-cols-1 gap-4">
                 {filteredDoctors.map((doctor) => (
@@ -141,15 +223,8 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                                     <User className="h-8 w-8 text-blue-600" />
                                 </div>
                                 <div className="flex-1">
-                                    <CardTitle className="text-lg">{doctor.name}</CardTitle>
-                                    <CardDescription>{doctor.specialty_name}</CardDescription>
-                                    <div className="flex gap-2 mt-2">
-                                        {doctor.availability.map((shift) => (
-                                            <Badge key={shift} variant="secondary" className="text-xs">
-                                                {shift}
-                                            </Badge>
-                                        ))}
-                                    </div>
+                                    <CardTitle className="text-lg">{doctor.full_name}</CardTitle>
+                                    <CardDescription>{doctor?.specialty?.name}</CardDescription>
                                 </div>
                             </div>
                         </CardHeader>
@@ -188,12 +263,12 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                         {selectedDate ? (
                             <RadioGroup value={selectedShift} onValueChange={setSelectedShift}>
                                 <div className="space-y-3">
-                                    {selectedDoctorData?.availability.map((shift) => (
-                                        <div key={shift} className="flex items-center space-x-2">
-                                            <RadioGroupItem value={shift} id={shift} />
-                                            <Label htmlFor={shift} className="flex items-center gap-2 cursor-pointer">
+                                    {shifts.map((shift) => (
+                                        <div key={shift.id} className="flex items-center space-x-2">
+                                            <RadioGroupItem value={shift.name} id={shift.name} />
+                                            <Label htmlFor={shift.name} className="flex items-center gap-2 cursor-pointer">
                                                 <Clock className="h-4 w-4" />
-                                                {shift} Shift
+                                                {shift.name} Shift
                                                 <Badge variant="outline">Available</Badge>
                                             </Label>
                                         </div>
@@ -222,11 +297,11 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <Label className="text-sm text-muted-foreground">Department</Label>
-                            <p className="font-medium">{mockDepartments.find(d => d.id === selectedDepartment)?.name}</p>
+                            <p className="font-medium">{specialty.find(d => d.id === selectedDepartment)?.name}</p>
                         </div>
                         <div>
                             <Label className="text-sm text-muted-foreground">Doctor</Label>
-                            <p className="font-medium">{selectedDoctorData?.name}</p>
+                            <p className="font-medium">{selectedDoctorData?.full_name}</p>
                         </div>
                         <div>
                             <Label className="text-sm text-muted-foreground">Date</Label>
@@ -247,7 +322,7 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
 
                     <div className="border-t pt-4">
                         <Label className="text-sm text-muted-foreground">Specialty</Label>
-                        <p className="font-medium">{selectedDoctorData?.specialty_name}</p>
+                        <p className="font-medium">{selectedDoctorData?.specialty?.name}</p>
                     </div>
                 </CardContent>
             </Card>
@@ -300,8 +375,8 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                     </DialogHeader>
                     <div className="py-4">
                         <div className="space-y-2">
-                            <p><strong>Doctor:</strong> {selectedDoctorData?.name}</p>
-                            <p><strong>Department:</strong> {mockDepartments.find(d => d.id === selectedDepartment)?.name}</p>
+                            <p><strong>Doctor:</strong> {selectedDoctorData?.full_name}</p>
+                            <p><strong>Department:</strong> {specialty.find(d => d.id === selectedDepartment)?.name}</p>
                             <p><strong>Date:</strong> {selectedDate?.toLocaleDateString()}</p>
                             <p><strong>Time:</strong> {selectedShift} Shift</p>
                         </div>

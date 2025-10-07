@@ -1,5 +1,5 @@
 export interface ISpecialty {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
 }

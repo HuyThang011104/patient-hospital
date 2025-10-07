@@ -1,6 +1,6 @@
 export interface IShift {
-  id: number;
+  id: string;
   name: string;
-  start_time: string; // time trong SQL, thường được biểu diễn bằng string 'HH:MM:SS'
-  end_time: string; // time trong SQL, thường được biểu diễn bằng string 'HH:MM:SS'
+  start_time: string;
+  end_time: string;
 }

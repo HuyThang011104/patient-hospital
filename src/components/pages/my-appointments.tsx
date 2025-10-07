@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -8,14 +8,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Label } from '../ui/label';
 import { Calendar, Clock, User, MapPin, Eye, X } from 'lucide-react';
-import { mockAppointments, mockMedicalRecords } from '@/utils/mock/mock-data';
+import { mockMedicalRecords } from '@/utils/mock/mock-data';
 import { toast } from 'sonner';
+import type { IAppointment } from '@/interfaces/appointment';
+import { supabase } from '@/utils/backend/client';
+import { useAuth } from '@/hooks/use-auth';
 
 export function MyAppointments() {
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
     const [showDetails, setShowDetails] = useState(false);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [appointmentToCancel, setAppointmentToCancel] = useState<any>(null);
+    const [appointments, setAppointments] = useState<IAppointment[]>([]);
+    const { user } = useAuth();
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -24,6 +29,31 @@ export function MyAppointments() {
             month: 'short',
             day: 'numeric'
         });
+    };
+    useEffect(() => {
+        fetchAppointments()
+    }, [])
+
+    const fetchAppointments = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('appointment')
+                .select(`
+        *,
+        doctor(
+          *,
+          specialty(*)
+        ),
+        shift(*)
+      `)
+                .eq('patient_id', user?.id);
+
+            if (error) throw error;
+            console.log("appointment", data);
+            setAppointments(data);
+        } catch (error) {
+            console.error('Error fetching appointments:', error);
+        }
     };
 
     const getStatusColor = (status: string) => {
@@ -75,7 +105,7 @@ export function MyAppointments() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-blue-600">
-                            {mockAppointments.filter(apt => apt.status === 'Pending').length}
+                            {appointments.filter(apt => apt.status === 'Pending').length}
                         </div>
                     </CardContent>
                 </Card>
@@ -86,7 +116,7 @@ export function MyAppointments() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-green-600">
-                            {mockAppointments.filter(apt => apt.status === 'Completed').length}
+                            {appointments.filter(apt => apt.status === 'Completed').length}
                         </div>
                     </CardContent>
                 </Card>
@@ -97,7 +127,7 @@ export function MyAppointments() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-red-600">
-                            {mockAppointments.filter(apt => apt.status === 'Cancelled').length}
+                            {appointments.filter(apt => apt.status === 'Cancelled').length}
                         </div>
                     </CardContent>
                 </Card>
@@ -123,7 +153,7 @@ export function MyAppointments() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {mockAppointments.map((appointment) => (
+                            {appointments.map((appointment) => (
                                 <TableRow key={appointment.id}>
                                     <TableCell className="font-mono text-sm">#{appointment.id}</TableCell>
                                     <TableCell>
@@ -131,20 +161,20 @@ export function MyAppointments() {
                                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                                                 <User className="h-4 w-4 text-blue-600" />
                                             </div>
-                                            {appointment.doctor_name}
+                                            {appointment?.doctor?.full_name}
                                         </div>
                                     </TableCell>
-                                    <TableCell>{appointment.department_name}</TableCell>
+                                    <TableCell>{appointment.doctor.specialty?.name}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
                                             <Calendar className="h-3 w-3 text-muted-foreground" />
-                                            {formatDate(appointment.date)}
+                                            {formatDate(appointment.appointment_date.toString())}
                                         </div>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
                                             <Clock className="h-3 w-3 text-muted-foreground" />
-                                            {appointment.shift}
+                                            {appointment.shift.name}
                                         </div>
                                     </TableCell>
                                     <TableCell>
