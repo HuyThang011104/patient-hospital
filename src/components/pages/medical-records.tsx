@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -9,11 +9,81 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Label } from '../ui/label';
 import { FileText, Download, Calendar, User, TestTube, Pill, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { mockLabTests, mockMedicalRecords, mockPrescriptions } from '@/utils/mock/mock-data';
+import type { IMedicalRecord } from '@/interfaces/medical_record';
+import { useAuth } from '@/hooks/use-auth';
+import { supabase } from '@/utils/backend/client';
+import type { ILabTest } from '@/interfaces/lab_test';
+import type { IPrescription } from '@/interfaces/prescription';
 
 export function MedicalRecords() {
     const [selectedRecord, setSelectedRecord] = useState<any>(null);
     const [showDetails, setShowDetails] = useState(false);
+    const [labTests, setLabTests] = useState<ILabTest[]>([]);
+    const [prescriptions, setPrescriptions] = useState<IPrescription[]>([]);
+    const [medicalRecords, setMedicalRecords] = useState<IMedicalRecord[]>([]);
+    const { user } = useAuth();
+    useEffect(() => {
+        fetchMedicalRecords();
+    }, [])
+
+    useEffect(() => {
+        if (selectedRecord) {
+            fetchLabTests();
+            fetchPrescriptions();
+        }
+    }, [selectedRecord])
+
+    const fetchMedicalRecords = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('medical_record')
+                .select(`
+                    *,
+                    doctor(*)
+                `)
+                .eq('patient_id', user?.id);
+            if (error) throw error;
+            console.log("medical_record", data)
+            setMedicalRecords(data);
+        } catch (error) {
+            console.error('Error fetching medical records:', error);
+        }
+    }
+
+    const fetchLabTests = async () => {
+        console.log("selectedRecord", selectedRecord)
+        try {
+            const { data, error } = await supabase
+                .from('lab_test')
+                .select(`
+                    *,
+                    medical_record(*)
+                `)
+                .eq('medical_record_id', selectedRecord.id);
+            if (error) throw error;
+            console.log("lab_test", data)
+            setLabTests(data);
+        } catch (error) {
+            console.error('Error fetching lab tests:', error);
+        }
+    }
+
+    const fetchPrescriptions = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('prescription')
+                .select(`
+                    *,
+                    medical_record(*)
+                `)
+                .eq('medical_record_id', selectedRecord.id);
+            if (error) throw error;
+            console.log("prescription", data)
+            setPrescriptions(data);
+        } catch (error) {
+            console.error('Error fetching prescriptions:', error);
+        }
+    }
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -24,22 +94,21 @@ export function MedicalRecords() {
         });
     };
 
-    const handleViewDetails = (record: any) => {
+    const handleViewDetails = (record: IMedicalRecord) => {
         setSelectedRecord(record);
         setShowDetails(true);
     };
 
     const handleDownloadPDF = (recordId: string) => {
         toast.success('Medical record PDF download started');
-        // In a real app, this would generate and download a PDF
     };
 
     const getLabTestsForRecord = (recordId: string) => {
-        return mockLabTests.filter(test => test.medical_record_id === recordId);
+        return labTests.filter(test => test.medical_record_id === recordId);
     };
 
     const getPrescriptionsForRecord = (recordId: string) => {
-        return mockPrescriptions.filter(prescription => prescription.medical_record_id === recordId);
+        return prescriptions.filter(prescription => prescription.medical_record_id === recordId);
     };
 
     return (
@@ -61,15 +130,15 @@ export function MedicalRecords() {
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="text-center p-4 bg-blue-50 rounded-lg">
-                            <div className="text-2xl font-bold text-blue-600">{mockMedicalRecords.length}</div>
+                            <div className="text-2xl font-bold text-blue-600">{medicalRecords.length}</div>
                             <p className="text-sm text-muted-foreground">Total Records</p>
                         </div>
                         <div className="text-center p-4 bg-green-50 rounded-lg">
-                            <div className="text-2xl font-bold text-green-600">{mockLabTests.length}</div>
+                            <div className="text-2xl font-bold text-green-600">{labTests.length}</div>
                             <p className="text-sm text-muted-foreground">Lab Tests</p>
                         </div>
                         <div className="text-center p-4 bg-purple-50 rounded-lg">
-                            <div className="text-2xl font-bold text-purple-600">{mockPrescriptions.length}</div>
+                            <div className="text-2xl font-bold text-purple-600">{prescriptions.length}</div>
                             <p className="text-sm text-muted-foreground">Prescriptions</p>
                         </div>
                     </div>
@@ -80,7 +149,7 @@ export function MedicalRecords() {
             <div className="space-y-4">
                 <h2>All Medical Records</h2>
 
-                {mockMedicalRecords.map((record) => (
+                {medicalRecords.map((record) => (
                     <Card key={record.id} className="hover:shadow-md transition-shadow">
                         <CardHeader>
                             <div className="flex items-start justify-between">
@@ -93,11 +162,11 @@ export function MedicalRecords() {
                                         <CardDescription className="flex items-center gap-4 mt-1">
                                             <span className="flex items-center gap-1">
                                                 <User className="h-3 w-3" />
-                                                {record.doctor_name}
+                                                {record.doctor.full_name}
                                             </span>
                                             <span className="flex items-center gap-1">
                                                 <Calendar className="h-3 w-3" />
-                                                {formatDate(record.visit_date)}
+                                                {formatDate(record.record_date.toString())}
                                             </span>
                                         </CardDescription>
                                     </div>
@@ -169,16 +238,16 @@ export function MedicalRecords() {
                                         </div>
                                         <div>
                                             <Label>Visit Date</Label>
-                                            <p>{formatDate(selectedRecord.visit_date)}</p>
+                                            <p>{formatDate(selectedRecord.record_date.toString())}</p>
                                         </div>
                                         <div>
                                             <Label>Doctor</Label>
-                                            <p>{selectedRecord.doctor_name}</p>
+                                            <p>{selectedRecord.doctor.full_name}</p>
                                         </div>
-                                        <div>
+                                        {/* <div>
                                             <Label>Appointment ID</Label>
                                             <p className="font-mono">#{selectedRecord.appointment_id}</p>
-                                        </div>
+                                        </div> */}
                                     </div>
 
                                     <div>
@@ -222,19 +291,13 @@ export function MedicalRecords() {
                                                         <div key={test.id} className="border rounded-lg p-4">
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <h4 className="font-medium">{test.test_type}</h4>
-                                                                <Badge variant="outline">{formatDate(test.date)}</Badge>
+                                                                <Badge variant="outline">{formatDate(test.test_date.toString())}</Badge>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-4 text-sm">
                                                                 <div>
                                                                     <Label>Result</Label>
                                                                     <p className="font-medium">{test.result}</p>
                                                                 </div>
-                                                                {test.normal_range && (
-                                                                    <div>
-                                                                        <Label>Normal Range</Label>
-                                                                        <p className="text-muted-foreground">{test.normal_range}</p>
-                                                                    </div>
-                                                                )}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -260,8 +323,8 @@ export function MedicalRecords() {
                                                     {getPrescriptionsForRecord(selectedRecord.id).map((prescription) => (
                                                         <div key={prescription.id} className="border rounded-lg p-4">
                                                             <div className="flex justify-between items-start mb-2">
-                                                                <h4 className="font-medium">{prescription.medicine_name}</h4>
-                                                                <Badge variant="outline">{formatDate(prescription.date)}</Badge>
+                                                                <h4 className="font-medium">{prescription.medical_record.diagnosis}</h4>
+                                                                <Badge variant="outline">{formatDate(prescription.medical_record.record_date.toString())}</Badge>
                                                             </div>
                                                             <div className="grid grid-cols-3 gap-4 text-sm">
                                                                 <div>

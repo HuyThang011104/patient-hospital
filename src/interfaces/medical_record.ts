@@ -1,8 +1,11 @@
+import type { IDoctor } from "./doctor";
+
 export interface IMedicalRecord {
-  id: number;
-  patient_id: number;
-  doctor_id: number;
+  id: string;
+  patient_id: string;
+  doctor_id: string;
   diagnosis: string | null;
   treatment: string | null;
-  record_date: Date | null; // datetime, có default là current_timestamp()
+  record_date: Date; // datetime, có default là current_timestamp()
+  doctor: IDoctor;
 }
