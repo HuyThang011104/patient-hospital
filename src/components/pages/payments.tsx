@@ -1,397 +1,382 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Separator } from '../ui/separator';
-import { Search, Filter, Download, Eye, DollarSign, CreditCard, Shield, FileText } from 'lucide-react';
-
-const paymentsData = [
-    {
-        id: 1,
-        patient: 'John Smith',
-        amount: 1250.00,
-        method: 'Insurance',
-        status: 'Paid',
-        date: '2024-03-10',
-        invoiceId: 'INV-2024-001',
-        services: [
-            { name: 'Cardiology Consultation', amount: 200.00 },
-            { name: 'ECG Test', amount: 150.00 },
-            { name: 'Blood Pressure Monitoring', amount: 100.00 },
-            { name: 'Medications', amount: 800.00 }
-        ]
-    },
-    {
-        id: 2,
-        patient: 'Sarah Johnson',
-        amount: 450.00,
-        method: 'Card',
-        status: 'Pending',
-        date: '2024-03-08',
-        invoiceId: 'INV-2024-002',
-        services: [
-            { name: 'Neurology Consultation', amount: 250.00 },
-            { name: 'MRI Scan', amount: 200.00 }
-        ]
-    },
-    {
-        id: 3,
-        patient: 'Mike Brown',
-        amount: 75.00,
-        method: 'Cash',
-        status: 'Paid',
-        date: '2024-03-05',
-        invoiceId: 'INV-2024-003',
-        services: [
-            { name: 'Pediatric Consultation', amount: 75.00 }
-        ]
-    },
-    {
-        id: 4,
-        patient: 'Lisa Williams',
-        amount: 2100.00,
-        method: 'Insurance',
-        status: 'Cancelled',
-        date: '2024-03-01',
-        invoiceId: 'INV-2024-004',
-        services: [
-            { name: 'Surgery Consultation', amount: 500.00 },
-            { name: 'X-Ray', amount: 100.00 },
-            { name: 'Physical Therapy', amount: 300.00 },
-            { name: 'Room Charges (3 days)', amount: 1200.00 }
-        ]
-    }
-];
-
-const insuranceData = [
-    {
-        id: 1,
-        patient: 'John Smith',
-        provider: 'HealthFirst Insurance',
-        policyNumber: 'HF-2024-789012',
-        validFrom: '2024-01-01',
-        validTo: '2024-12-31',
-        coverage: 80,
-        status: 'Active'
-    },
-    {
-        id: 2,
-        patient: 'Sarah Johnson',
-        provider: 'MediCare Plus',
-        policyNumber: 'MCP-2024-345678',
-        validFrom: '2024-02-15',
-        validTo: '2025-02-14',
-        coverage: 75,
-        status: 'Active'
-    },
-    {
-        id: 3,
-        patient: 'Lisa Williams',
-        provider: 'SecureHealth',
-        policyNumber: 'SH-2024-901234',
-        validFrom: '2023-12-01',
-        validTo: '2024-11-30',
-        coverage: 90,
-        status: 'Expiring Soon'
-    },
-    {
-        id: 4,
-        patient: 'David Garcia',
-        provider: 'FamilyCare Insurance',
-        policyNumber: 'FC-2023-567890',
-        validFrom: '2023-06-01',
-        validTo: '2024-05-31',
-        coverage: 85,
-        status: 'Active'
-    }
-];
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Label } from '../ui/label';
+import { CreditCard, DollarSign, Calendar, Eye, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
+import { mockPayments } from '@/utils/mock/mock-data';
 
 export function Payments() {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('All');
-    const [methodFilter, setMethodFilter] = useState('All');
-    const [selectedPayment, setSelectedPayment] = useState<number | null>(null);
-    const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+    const [selectedPayment, setSelectedPayment] = useState<any>(null);
+    const [showDetails, setShowDetails] = useState(false);
+    const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState('card');
 
-    const filteredPayments = paymentsData.filter(payment => {
-        const matchesSearch = payment.patient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            payment.invoiceId.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'All' || payment.status === statusFilter;
-        const matchesMethod = methodFilter === 'All' || payment.method === methodFilter;
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    };
 
-        return matchesSearch && matchesStatus && matchesMethod;
-    });
-
-    const getStatusBadge = (status: string) => {
-        const variant = status === 'Paid' ? 'default' :
-            status === 'Pending' ? 'secondary' : 'destructive';
-        return <Badge variant={variant}>{status}</Badge>;
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'Pending':
+                return 'bg-yellow-100 text-yellow-800';
+            case 'Paid':
+                return 'bg-green-100 text-green-800';
+            case 'Cancelled':
+                return 'bg-red-100 text-red-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
     };
 
     const getMethodIcon = (method: string) => {
         switch (method) {
-            case 'Cash': return <DollarSign className="h-4 w-4" />;
-            case 'Card': return <CreditCard className="h-4 w-4" />;
-            case 'Insurance': return <Shield className="h-4 w-4" />;
-            default: return <DollarSign className="h-4 w-4" />;
+            case 'Card':
+                return <CreditCard className="h-4 w-4" />;
+            case 'Cash':
+                return <DollarSign className="h-4 w-4" />;
+            case 'Insurance':
+                return <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>;
+            default:
+                return <DollarSign className="h-4 w-4" />;
         }
     };
 
-    const getInsuranceStatusBadge = (status: string) => {
-        const variant = status === 'Active' ? 'default' :
-            status === 'Expiring Soon' ? 'secondary' : 'destructive';
-        return <Badge variant={variant}>{status}</Badge>;
+    const totalPaid = mockPayments
+        .filter(payment => payment.status === 'Paid')
+        .reduce((sum, payment) => sum + payment.amount, 0);
+
+    const pendingAmount = mockPayments
+        .filter(payment => payment.status === 'Pending')
+        .reduce((sum, payment) => sum + payment.amount, 0);
+
+    const pendingPayments = mockPayments.filter(payment => payment.status === 'Pending');
+
+    const handleViewDetails = (payment: any) => {
+        setSelectedPayment(payment);
+        setShowDetails(true);
     };
 
-    const openInvoiceDetail = (paymentId: number) => {
-        setSelectedPayment(paymentId);
-        setIsInvoiceDialogOpen(true);
+    const handlePayNow = (payment: any) => {
+        setSelectedPayment(payment);
+        setShowPaymentDialog(true);
     };
 
-    const selectedPaymentData = selectedPayment ? paymentsData.find(p => p.id === selectedPayment) : null;
+    const processPayment = () => {
+        if (!paymentMethod) {
+            toast.error('Please select a payment method');
+            return;
+        }
+
+        toast.success('Payment processed successfully!');
+        setShowPaymentDialog(false);
+        setPaymentMethod('');
+    };
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1>Payments & Insurance</h1>
-                    <p className="text-muted-foreground">
-                        Manage patient payments, invoices, and insurance claims
-                    </p>
-                </div>
+        <div className="p-6 space-y-6">
+            <div>
+                <h1>Payments</h1>
+                <p className="text-muted-foreground">Manage your medical bills and payment history</p>
             </div>
 
-            <Tabs defaultValue="payments" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="payments" className="flex items-center">
-                        <DollarSign className="mr-2 h-4 w-4" />
-                        Payments
-                    </TabsTrigger>
-                    <TabsTrigger value="insurance" className="flex items-center">
-                        <Shield className="mr-2 h-4 w-4" />
-                        Insurance
-                    </TabsTrigger>
-                </TabsList>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-green-600">${totalPaid.toFixed(2)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            All completed payments
+                        </p>
+                    </CardContent>
+                </Card>
 
-                <TabsContent value="payments">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
-                                <CardTitle>Payment Records</CardTitle>
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <div className="relative">
-                                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            placeholder="Search payments..."
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="pl-8 w-64"
-                                        />
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Pending Bills</CardTitle>
+                        <svg className="h-4 w-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-yellow-600">${pendingAmount.toFixed(2)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            {pendingPayments.length} pending bill(s)
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">This Year</CardTitle>
+                        <Calendar className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-blue-600">
+                            ${(totalPaid + pendingAmount).toFixed(2)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Total medical expenses
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Pending Payments */}
+            {pendingPayments.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg text-yellow-600">Pending Payments</CardTitle>
+                        <CardDescription>Bills that require your attention</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            {pendingPayments.map((payment) => (
+                                <div key={payment.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                            <DollarSign className="h-5 w-5 text-yellow-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">{payment.description}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Due: {formatDate(payment.date)} • ${payment.amount.toFixed(2)}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                        <SelectTrigger className="w-32">
-                                            <Filter className="mr-2 h-4 w-4" />
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="All">All Status</SelectItem>
-                                            <SelectItem value="Paid">Paid</SelectItem>
-                                            <SelectItem value="Pending">Pending</SelectItem>
-                                            <SelectItem value="Cancelled">Cancelled</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={methodFilter} onValueChange={setMethodFilter}>
-                                        <SelectTrigger className="w-32">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="All">All Methods</SelectItem>
-                                            <SelectItem value="Cash">Cash</SelectItem>
-                                            <SelectItem value="Card">Card</SelectItem>
-                                            <SelectItem value="Insurance">Insurance</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Button variant="outline">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Export
+                                    <Button
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                        onClick={() => handlePayNow(payment)}
+                                    >
+                                        Pay Now
                                     </Button>
                                 </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Patient</TableHead>
-                                            <TableHead>Invoice ID</TableHead>
-                                            <TableHead>Amount</TableHead>
-                                            <TableHead>Method</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Date</TableHead>
-                                            <TableHead>Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredPayments.map((payment) => (
-                                            <TableRow key={payment.id}>
-                                                <TableCell>{payment.patient}</TableCell>
-                                                <TableCell className="font-mono">{payment.invoiceId}</TableCell>
-                                                <TableCell>${payment.amount.toFixed(2)}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center space-x-2">
-                                                        {getMethodIcon(payment.method)}
-                                                        <span>{payment.method}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                                                <TableCell>{payment.date}</TableCell>
-                                                <TableCell>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Payment History */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Payment History</CardTitle>
+                    <CardDescription>Complete record of all your medical payments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Payment ID</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Amount</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Method</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {mockPayments
+                                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                .map((payment) => (
+                                    <TableRow key={payment.id}>
+                                        <TableCell className="font-mono text-sm">#{payment.id}</TableCell>
+                                        <TableCell>{payment.description}</TableCell>
+                                        <TableCell className="font-medium">${payment.amount.toFixed(2)}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-1">
+                                                <Calendar className="h-3 w-3 text-muted-foreground" />
+                                                {formatDate(payment.date)}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                {getMethodIcon(payment.method)}
+                                                {payment.method}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge className={getStatusColor(payment.status)}>
+                                                {payment.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleViewDetails(payment)}
+                                                >
+                                                    <Eye className="h-3 w-3 mr-1" />
+                                                    View
+                                                </Button>
+                                                {payment.status === 'Pending' && (
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => openInvoiceDetail(payment.id)}
+                                                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                        onClick={() => handlePayNow(payment)}
                                                     >
-                                                        <Eye className="h-4 w-4" />
+                                                        <ExternalLink className="h-3 w-3 mr-1" />
+                                                        Pay
                                                     </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
-                <TabsContent value="insurance">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center">
-                                <Shield className="mr-2 h-5 w-5" />
-                                Insurance Policies
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Patient</TableHead>
-                                            <TableHead>Provider</TableHead>
-                                            <TableHead>Policy Number</TableHead>
-                                            <TableHead>Valid From</TableHead>
-                                            <TableHead>Valid To</TableHead>
-                                            <TableHead>Coverage</TableHead>
-                                            <TableHead>Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {insuranceData.map((insurance) => (
-                                            <TableRow key={insurance.id}>
-                                                <TableCell>{insurance.patient}</TableCell>
-                                                <TableCell>{insurance.provider}</TableCell>
-                                                <TableCell className="font-mono">{insurance.policyNumber}</TableCell>
-                                                <TableCell>{insurance.validFrom}</TableCell>
-                                                <TableCell>{insurance.validTo}</TableCell>
-                                                <TableCell>{insurance.coverage}%</TableCell>
-                                                <TableCell>{getInsuranceStatusBadge(insurance.status)}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
-
-            {/* Invoice Detail Dialog */}
-            <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
-                <DialogContent className="max-w-2xl">
+            {/* Payment Details Dialog */}
+            <Dialog open={showDetails} onOpenChange={setShowDetails}>
+                <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="flex items-center">
-                            <FileText className="mr-2 h-5 w-5" />
-                            Invoice Details
-                        </DialogTitle>
+                        <DialogTitle>Payment Details</DialogTitle>
+                        <DialogDescription>
+                            Detailed information about this payment
+                        </DialogDescription>
                     </DialogHeader>
 
-                    {selectedPaymentData && (
-                        <div className="space-y-6">
-                            {/* Invoice Header */}
-                            <div className="flex justify-between items-start">
+                    {selectedPayment && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <h3 className="text-lg font-semibold">HealthCare Hospital</h3>
-                                    <p className="text-sm text-muted-foreground">Invoice #{selectedPaymentData.invoiceId}</p>
-                                    <p className="text-sm text-muted-foreground">Date: {selectedPaymentData.date}</p>
+                                    <Label>Payment ID</Label>
+                                    <p className="font-mono">#{selectedPayment.id}</p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-sm text-muted-foreground">Patient:</p>
-                                    <p className="font-medium">{selectedPaymentData.patient}</p>
-                                    <div className="mt-2">
-                                        {getStatusBadge(selectedPaymentData.status)}
+                                <div>
+                                    <Label>Status</Label>
+                                    <Badge className={getStatusColor(selectedPayment.status)}>
+                                        {selectedPayment.status}
+                                    </Badge>
+                                </div>
+                                <div>
+                                    <Label>Amount</Label>
+                                    <p className="font-medium text-lg">${selectedPayment.amount.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <Label>Date</Label>
+                                    <p>{formatDate(selectedPayment.date)}</p>
+                                </div>
+                                <div>
+                                    <Label>Payment Method</Label>
+                                    <div className="flex items-center gap-2">
+                                        {getMethodIcon(selectedPayment.method)}
+                                        <p>{selectedPayment.method}</p>
                                     </div>
                                 </div>
+                                {selectedPayment.appointment_id && (
+                                    <div>
+                                        <Label>Appointment ID</Label>
+                                        <p className="font-mono">#{selectedPayment.appointment_id}</p>
+                                    </div>
+                                )}
                             </div>
 
-                            <Separator />
-
-                            {/* Services Breakdown */}
                             <div>
-                                <h4 className="font-medium mb-3">Services & Charges</h4>
-                                <div className="space-y-2">
-                                    {selectedPaymentData.services.map((service, index) => (
-                                        <div key={index} className="flex justify-between">
-                                            <span>{service.name}</span>
-                                            <span>${service.amount.toFixed(2)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            {/* Payment Summary */}
-                            <div className="space-y-2">
-                                <div className="flex justify-between">
-                                    <span>Subtotal:</span>
-                                    <span>${selectedPaymentData.amount.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Tax (0%):</span>
-                                    <span>$0.00</span>
-                                </div>
-                                <div className="flex justify-between font-semibold text-lg">
-                                    <span>Total:</span>
-                                    <span>${selectedPaymentData.amount.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between items-center pt-2">
-                                    <span>Payment Method:</span>
-                                    <div className="flex items-center space-x-2">
-                                        {getMethodIcon(selectedPaymentData.method)}
-                                        <span>{selectedPaymentData.method}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end space-x-2 pt-4">
-                                <Button variant="outline">
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Download PDF
-                                </Button>
-                                <Button>
-                                    Print Invoice
-                                </Button>
+                                <Label>Description</Label>
+                                <p className="mt-1 p-3 bg-gray-50 rounded-lg">{selectedPayment.description}</p>
                             </div>
                         </div>
                     )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowDetails(false)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Payment Dialog */}
+            <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Process Payment</DialogTitle>
+                        <DialogDescription>
+                            Complete your payment for this medical bill
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedPayment && (
+                        <div className="space-y-6">
+                            <div className="p-4 bg-blue-50 rounded-lg">
+                                <h4 className="font-medium mb-2">Payment Summary</h4>
+                                <div className="space-y-1 text-sm">
+                                    <p><strong>Description:</strong> {selectedPayment.description}</p>
+                                    <p><strong>Amount:</strong> ${selectedPayment.amount.toFixed(2)}</p>
+                                    <p><strong>Due Date:</strong> {formatDate(selectedPayment.date)}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label>Select Payment Method</Label>
+                                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Choose payment method" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="card">Credit/Debit Card</SelectItem>
+                                        <SelectItem value="insurance">Insurance</SelectItem>
+                                        <SelectItem value="cash">Cash Payment</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {paymentMethod === 'card' && (
+                                <div className="p-3 bg-gray-50 rounded-lg text-sm text-muted-foreground">
+                                    You will be redirected to a secure payment gateway to complete your card payment.
+                                </div>
+                            )}
+
+                            {paymentMethod === 'insurance' && (
+                                <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                                    This payment will be processed through your insurance provider.
+                                </div>
+                            )}
+
+                            {paymentMethod === 'cash' && (
+                                <div className="p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700">
+                                    Please visit the hospital reception to complete your cash payment.
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={processPayment}
+                            disabled={!paymentMethod}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            Process Payment
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
     );
 }
+
