@@ -15,7 +15,7 @@ import { supabase } from '@/utils/backend/client';
 import { useAuth } from '@/hooks/use-auth';
 
 export function MyAppointments() {
-    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    const [selectedAppointment, setSelectedAppointment] = useState<IAppointment | null>(null);
     const [showDetails, setShowDetails] = useState(false);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [appointmentToCancel, setAppointmentToCancel] = useState<any>(null);
@@ -31,14 +31,11 @@ export function MyAppointments() {
         });
     };
     useEffect(() => {
-        fetchAppointments()
-    }, [])
-
-    const fetchAppointments = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('appointment')
-                .select(`
+        const fetchAppointments = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('appointment')
+                    .select(`
         *,
         doctor(
           *,
@@ -46,15 +43,19 @@ export function MyAppointments() {
         ),
         shift(*)
       `)
-                .eq('patient_id', user?.id);
+                    .eq('patient_id', user?.id);
 
-            if (error) throw error;
-            console.log("appointment", data);
-            setAppointments(data);
-        } catch (error) {
-            console.error('Error fetching appointments:', error);
-        }
-    };
+                if (error) throw error;
+                console.log("appointment", data);
+                setAppointments(data);
+            } catch (error) {
+                console.error('Error fetching appointments:', error);
+            }
+        };
+        fetchAppointments()
+    }, [user?.id])
+
+
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -143,7 +144,6 @@ export function MyAppointments() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Appointment ID</TableHead>
                                 <TableHead>Doctor</TableHead>
                                 <TableHead>Department</TableHead>
                                 <TableHead>Date</TableHead>
@@ -155,7 +155,6 @@ export function MyAppointments() {
                         <TableBody>
                             {appointments.map((appointment) => (
                                 <TableRow key={appointment.id}>
-                                    <TableCell className="font-mono text-sm">#{appointment.id}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -237,8 +236,8 @@ export function MyAppointments() {
                                                 <User className="h-5 w-5 text-blue-600" />
                                             </div>
                                             <div>
-                                                <p className="font-medium">{selectedAppointment.doctor_name}</p>
-                                                <p className="text-sm text-muted-foreground">{selectedAppointment.department_name}</p>
+                                                <p className="font-medium">{selectedAppointment.doctor?.full_name}</p>
+                                                <p className="text-sm text-muted-foreground">{selectedAppointment.doctor?.specialty?.name}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -246,7 +245,7 @@ export function MyAppointments() {
                                         <Label className="text-sm text-muted-foreground">Department</Label>
                                         <div className="flex items-center gap-2 mt-1">
                                             <MapPin className="h-4 w-4 text-muted-foreground" />
-                                            <p>{selectedAppointment.department_name}</p>
+                                            <p>{selectedAppointment.doctor?.specialty?.name}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -257,11 +256,11 @@ export function MyAppointments() {
                                         <div className="space-y-1 mt-1">
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                <p>{formatDate(selectedAppointment.date)}</p>
+                                                <p>{formatDate(selectedAppointment.appointment_date.toString())}</p>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Clock className="h-4 w-4 text-muted-foreground" />
-                                                <p>{selectedAppointment.shift} Shift</p>
+                                                <p>{selectedAppointment.shift.name} Shift</p>
                                             </div>
                                         </div>
                                     </div>
@@ -286,7 +285,7 @@ export function MyAppointments() {
                             {selectedAppointment.status === 'Completed' && (
                                 <div>
                                     <Label className="text-sm text-muted-foreground">Medical Record</Label>
-                                    {getRelatedMedicalRecord(selectedAppointment.id) ? (
+                                    {getRelatedMedicalRecord(selectedAppointment.id.toString()) ? (
                                         <Card className="mt-2">
                                             <CardContent className="pt-4">
                                                 <p className="text-sm">A medical record is available for this appointment.</p>
