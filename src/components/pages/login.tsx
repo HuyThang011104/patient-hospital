@@ -149,7 +149,7 @@ export function LoginPage() {
                                 </Button>
 
                                 <p className="text-center text-sm text-muted-foreground">
-                                    Demo credentials: john.smith@email.com / password
+                                    Demo credentials: mai.le@gmail.com / 123456
                                 </p>
                             </CardContent>
                         </TabsContent>
