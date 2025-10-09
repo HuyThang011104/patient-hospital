@@ -8,11 +8,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Label } from '../ui/label';
 import { Calendar, Clock, User, MapPin, Eye, X } from 'lucide-react';
-import { mockMedicalRecords } from '@/utils/mock/mock-data';
 import { toast } from 'sonner';
 import type { IAppointment } from '@/interfaces/appointment';
 import { supabase } from '@/utils/backend/client';
 import { useAuth } from '@/hooks/use-auth';
+import type { MedicalRecord } from '@/interfaces';
 
 export function MyAppointments() {
     const [selectedAppointment, setSelectedAppointment] = useState<IAppointment | null>(null);
@@ -20,16 +20,9 @@ export function MyAppointments() {
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [appointmentToCancel, setAppointmentToCancel] = useState<any>(null);
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
+    const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
     const { user } = useAuth();
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            weekday: 'short',
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    };
     useEffect(() => {
         const fetchAppointments = async () => {
             try {
@@ -55,7 +48,26 @@ export function MyAppointments() {
         fetchAppointments()
     }, [user?.id])
 
-
+    useEffect(() => {
+        if (!showDetails) return;
+        const fetchMedicalRecords = async () => {
+            try {
+                const { data, error } = await supabase.from("medical_record")
+                    .select(`*,
+                    doctor(*),
+                    patient(*),
+                    appointment:appointment_id ( id, patient(*) )
+                `)
+                    .eq("patient_id", user?.id);
+                console.log("medical records", data);
+                if (error) throw error;
+                setMedicalRecords(data);
+            } catch (error) {
+                console.error('Error fetching medical records:', error);
+            }
+        };
+        fetchMedicalRecords()
+    }, [showDetails, user?.id])
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -86,11 +98,6 @@ export function MyAppointments() {
         setShowCancelDialog(false);
         setAppointmentToCancel(null);
     };
-
-    const getRelatedMedicalRecord = (appointmentId: string) => {
-        return mockMedicalRecords.find(record => record.appointment_id === appointmentId);
-    };
-
     return (
         <div className="p-6 space-y-6">
             <div>
@@ -167,7 +174,7 @@ export function MyAppointments() {
                                     <TableCell>
                                         <div className="flex items-center gap-1">
                                             <Calendar className="h-3 w-3 text-muted-foreground" />
-                                            {formatDate(appointment.appointment_date.toString())}
+                                            {new Date(appointment.appointment_date).toLocaleDateString('vi-VN')}
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -256,7 +263,7 @@ export function MyAppointments() {
                                         <div className="space-y-1 mt-1">
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                <p>{formatDate(selectedAppointment.appointment_date.toString())}</p>
+                                                <p>{new Date(selectedAppointment.appointment_date).toLocaleDateString('vi-VN')}</p>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Clock className="h-4 w-4 text-muted-foreground" />
@@ -285,13 +292,21 @@ export function MyAppointments() {
                             {selectedAppointment.status === 'Completed' && (
                                 <div>
                                     <Label className="text-sm text-muted-foreground">Medical Record</Label>
-                                    {getRelatedMedicalRecord(selectedAppointment.id.toString()) ? (
+                                    {(medicalRecords) ? (
                                         <Card className="mt-2">
                                             <CardContent className="pt-4">
-                                                <p className="text-sm">A medical record is available for this appointment.</p>
-                                                <Button variant="outline" size="sm" className="mt-2">
-                                                    View Medical Record
-                                                </Button>
+                                                {medicalRecords.map(record => (
+                                                    <div key={record.id}>
+                                                        <div>
+                                                            <p className="font-medium">{record.diagnosis}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                {record.treatment}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </CardContent>
                                         </Card>
                                     ) : (
@@ -324,7 +339,7 @@ export function MyAppointments() {
                         <div className="py-4">
                             <div className="bg-gray-50 p-3 rounded-lg space-y-1">
                                 <p><strong>Doctor:</strong> {appointmentToCancel.doctor_name}</p>
-                                <p><strong>Date:</strong> {formatDate(appointmentToCancel.date)}</p>
+                                <p><strong>Date:</strong> {new Date(appointmentToCancel.appointment_date).toLocaleDateString('vi-VN')}</p>
                                 <p><strong>Time:</strong> {appointmentToCancel.shift} Shift</p>
                             </div>
                         </div>
