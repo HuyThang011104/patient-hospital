@@ -13,7 +13,7 @@ export function Header() {
                 <div className="relative w-full">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Search appointments, doctors, records..."
+                        placeholder="Tìm kiếm cuộc hẹn, bác sĩ, ..."
                         className="pl-10 bg-gray-50 border-0"
                     />
                 </div>
@@ -35,7 +35,7 @@ export function Header() {
                     </Avatar>
                     <div className="text-sm">
                         <p className="font-medium">{user?.full_name || 'John Smith'}</p>
-                        <p className="text-muted-foreground">Patient ID: {user?.personal_id || 'ID123456789'}</p>
+                        <p className="text-muted-foreground">{user?.personal_id || 'ID123456789'}</p>
                     </div>
                 </div>
             </div>

@@ -1,8 +1,11 @@
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Calendar, Clock, Shield, DollarSign, CalendarPlus, FileText } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { mockAppointments, mockPayments } from '@/utils/mock/mock-data';
+import { supabase } from '@/utils/backend/client';
+import type { IAppointment } from '@/interfaces/appointment';
+import type { IPayment } from '@/interfaces/payment';
 
 interface DashboardProps {
     onPageChange: (page: string) => void;
@@ -10,21 +13,67 @@ interface DashboardProps {
 
 export function Dashboard({ onPageChange }: DashboardProps) {
     const { user } = useAuth();
+    const [appointments, setAppointments] = useState<IAppointment[]>([]);
+    const [payments, setPayments] = useState<IPayment[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const upcomingAppointments = mockAppointments.filter(
-        apt => apt.status === 'Pending' && new Date(apt.date) >= new Date()
+    const fetchDashboardData = useCallback(async () => {
+        if (!user) return;
+
+        try {
+            setLoading(true);
+
+            // Fetch appointments
+            const { data: appointmentsData, error: appointmentsError } = await supabase
+                .from('appointment')
+                .select(`
+                    *,
+                    doctor(full_name, department_id),
+                    shift(*),
+                    patient(*)
+                `)
+                .eq('patient_id', user.id)
+                .order('appointment_date', { ascending: false });
+
+            // Fetch payments
+            const { data: paymentsData, error: paymentsError } = await supabase
+                .from('payment')
+                .select('*')
+                .eq('patient_id', user.id)
+                .order('payment_date', { ascending: false });
+
+            if (appointmentsError) throw appointmentsError;
+            if (paymentsError) throw paymentsError;
+
+            setAppointments(appointmentsData || []);
+            setPayments(paymentsData || []);
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+            setAppointments([]);
+            setPayments([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
+
+    const upcomingAppointments = appointments.filter(
+        apt => apt.status === 'Pending' && new Date(apt.appointment_date) >= new Date()
     );
 
-    const totalVisits = mockAppointments.filter(apt => apt.status === 'Completed').length;
-    const totalPayments = mockPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    const pendingPayments = mockPayments.filter(payment => payment.status === 'Pending').length;
+    const totalVisits = appointments.filter(apt => apt.status === 'Completed').length;
+    const totalPayments = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const pendingPayments = payments.filter(payment => payment.status === 'Pending').length;
 
     const nextAppointment = upcomingAppointments.sort((a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
+        new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime()
     )[0];
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
+    const formatDate = (dateString: string | Date) => {
+        return new Date(dateString).toLocaleDateString('vi-VN', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -32,65 +81,79 @@ export function Dashboard({ onPageChange }: DashboardProps) {
         });
     };
 
+    if (loading) {
+        return (
+            <div className="p-6 space-y-6">
+                <div>
+                    <h1>Đang tải...</h1>
+                    <p className="text-muted-foreground">Đang tải bảng điều khiển của bạn...</p>
+                </div>
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-6 space-y-6">
             <div>
-                <h1>Welcome back, {user?.full_name?.split(' ')[0] || 'John'}!</h1>
-                <p className="text-muted-foreground">Here's an overview of your healthcare journey</p>
+                <h1>Chào mừng trở lại, {user?.full_name?.split(' ')[0] || 'John'}!</h1>
+                <p className="text-muted-foreground">Đây là tổng quan về hành trình chăm sóc sức khỏe của bạn</p>
             </div>
 
             {/* Overview Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Upcoming Appointments</CardTitle>
+                        <CardTitle className="text-sm font-medium">Lịch Hẹn Sắp Tới</CardTitle>
                         <Calendar className="h-4 w-4 text-blue-600" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{upcomingAppointments.length}</div>
                         <p className="text-xs text-muted-foreground">
-                            {upcomingAppointments.length > 0 ? 'Next appointment scheduled' : 'No upcoming appointments'}
+                            {upcomingAppointments.length > 0 ? 'Đã có lịch hẹn tiếp theo' : 'Không có lịch hẹn sắp tới'}
                         </p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
+                        <CardTitle className="text-sm font-medium">Tổng Số Lượt Khám</CardTitle>
                         <FileText className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{totalVisits}</div>
                         <p className="text-xs text-muted-foreground">
-                            Completed appointments this year
+                            Lịch hẹn đã hoàn thành trong năm nay
                         </p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Insurance</CardTitle>
+                        <CardTitle className="text-sm font-medium">Bảo Hiểm</CardTitle>
                         <Shield className="h-4 w-4 text-purple-600" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {user?.insurance_provider ? 'Active' : 'None'}
+                            {user?.insurance_provider ? 'Có' : 'Không'}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            {user?.insurance_provider || 'No insurance on file'}
+                            {user?.insurance_provider || 'Không có bảo hiểm'}
                         </p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
+                        <CardTitle className="text-sm font-medium">Tổng Thanh Toán</CardTitle>
                         <DollarSign className="h-4 w-4 text-orange-600" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">${totalPayments.toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">
-                            {pendingPayments > 0 ? `${pendingPayments} pending bill(s)` : 'All bills paid'}
+                            {pendingPayments > 0 ? `${pendingPayments} hóa đơn chưa thanh toán` : 'Đã thanh toán tất cả'}
                         </p>
                     </CardContent>
                 </Card>
@@ -100,8 +163,8 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                 {/* Next Appointment */}
                 <Card className="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle>Next Appointment</CardTitle>
-                        <CardDescription>Your upcoming medical appointments</CardDescription>
+                        <CardTitle>Lịch Hẹn Tiếp Theo</CardTitle>
+                        <CardDescription>Các lịch hẹn y tế sắp tới của bạn</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {nextAppointment ? (
@@ -112,12 +175,12 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                                             <Calendar className="h-6 w-6 text-white" />
                                         </div>
                                         <div>
-                                            <h3 className="font-medium">{nextAppointment.doctor_name}</h3>
-                                            <p className="text-sm text-muted-foreground">{nextAppointment.department_name}</p>
+                                            <h3 className="font-medium">{nextAppointment.doctor?.full_name || 'Doctor'}</h3>
+                                            <p className="text-sm text-muted-foreground">Khoa</p>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <Clock className="h-3 w-3 text-muted-foreground" />
                                                 <span className="text-xs text-muted-foreground">
-                                                    {formatDate(nextAppointment.date)} - {nextAppointment.shift}
+                                                    {formatDate(nextAppointment.appointment_date)} - {nextAppointment.shift?.name || 'Ca'}
                                                 </span>
                                             </div>
                                         </div>
@@ -127,7 +190,7 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                                         size="sm"
                                         onClick={() => onPageChange('my-appointments')}
                                     >
-                                        View Details
+                                        Xem Chi Tiết
                                     </Button>
                                 </div>
                                 <Button
@@ -135,22 +198,22 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                                     onClick={() => onPageChange('book-appointment')}
                                 >
                                     <CalendarPlus className="h-4 w-4 mr-2" />
-                                    Book Another Appointment
+                                    Đặt Lịch Hẹn Khác
                                 </Button>
                             </div>
                         ) : (
                             <div className="text-center py-8">
                                 <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                                <h3 className="font-medium mb-2">No upcoming appointments</h3>
+                                <h3 className="font-medium mb-2">Không có lịch hẹn sắp tới</h3>
                                 <p className="text-sm text-muted-foreground mb-4">
-                                    Schedule your next appointment to stay on top of your health
+                                    Đặt lịch hẹn tiếp theo để bảo vệ sức khỏe của bạn
                                 </p>
                                 <Button
                                     className="bg-blue-600 hover:bg-blue-700"
                                     onClick={() => onPageChange('book-appointment')}
                                 >
                                     <CalendarPlus className="h-4 w-4 mr-2" />
-                                    Book Appointment
+                                    Đặt Lịch Hẹn
                                 </Button>
                             </div>
                         )}
@@ -160,8 +223,8 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                 {/* Quick Actions */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Quick Actions</CardTitle>
-                        <CardDescription>Common tasks and shortcuts</CardDescription>
+                        <CardTitle>Hành Động Nhanh</CardTitle>
+                        <CardDescription>Các tác vụ thường dùng và đường tắt</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <Button
@@ -170,7 +233,7 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                             onClick={() => onPageChange('medical-records')}
                         >
                             <FileText className="h-4 w-4 mr-2" />
-                            View Medical Records
+                            Xem Hồ Sơ Y Tế
                         </Button>
                         <Button
                             variant="outline"
@@ -180,7 +243,7 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                             <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                             </svg>
-                            View Prescriptions
+                            Xem Đơn Thuốc
                         </Button>
                         <Button
                             variant="outline"
@@ -188,7 +251,7 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                             onClick={() => onPageChange('payments')}
                         >
                             <DollarSign className="h-4 w-4 mr-2" />
-                            Manage Payments
+                            Quản Lý Thanh Toán
                         </Button>
                         <Button
                             variant="outline"
@@ -198,7 +261,7 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                             <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
-                            Update Profile
+                            Cập Nhật Hồ Sơ
                         </Button>
                     </CardContent>
                 </Card>
@@ -207,12 +270,12 @@ export function Dashboard({ onPageChange }: DashboardProps) {
             {/* Recent Activity */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>Your latest appointments and medical records</CardDescription>
+                    <CardTitle>Hoạt Động Gần Đây</CardTitle>
+                    <CardDescription>Các lịch hẹn và hồ sơ y tế mới nhất của bạn</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
-                        {mockAppointments
+                        {appointments
                             .filter(apt => apt.status === 'Completed')
                             .slice(0, 3)
                             .map((appointment) => (
@@ -224,9 +287,9 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                                             </svg>
                                         </div>
                                         <div>
-                                            <p className="font-medium">{appointment.doctor_name}</p>
+                                            <p className="font-medium">{appointment.doctor?.full_name || 'Doctor'}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                {appointment.department_name} • {formatDate(appointment.date)}
+                                                Khoa • {formatDate(appointment.appointment_date)}
                                             </p>
                                         </div>
                                     </div>
@@ -235,7 +298,7 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                                         size="sm"
                                         onClick={() => onPageChange('medical-records')}
                                     >
-                                        View Record
+                                        Xem Hồ Sơ
                                     </Button>
                                 </div>
                             ))}

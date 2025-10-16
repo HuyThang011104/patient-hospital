@@ -84,8 +84,8 @@ export function Profile() {
     return (
         <div className="p-6 space-y-6 max-w-4xl mx-auto">
             <div>
-                <h1>Profile</h1>
-                <p className="text-muted-foreground">Manage your personal information and settings</p>
+                <h1>Hồ Sơ Cá Nhân</h1>
+                <p className="text-muted-foreground">Quản lý thông tin cá nhân và cài đặt của bạn</p>
             </div>
 
             {/* Profile Overview */}
@@ -109,7 +109,7 @@ export function Profile() {
                             variant={isEditing ? "outline" : "default"}
                             className={isEditing ? "" : "bg-blue-600 hover:bg-blue-700"}
                         >
-                            {isEditing ? 'Cancel' : 'Edit Profile'}
+                            {isEditing ? 'Hủy Bỏ' : 'Chỉnh Sửa Hồ Sơ'}
                         </Button>
                     </div>
                 </CardHeader>
@@ -121,14 +121,14 @@ export function Profile() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <User className="h-5 w-5" />
-                            Personal Information
+                            Thông Tin Cá Nhân
                         </CardTitle>
-                        <CardDescription>Your basic personal details</CardDescription>
+                        <CardDescription>Thông tin cá nhân cơ bản của bạn</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="full_name">Full Name</Label>
+                                <Label htmlFor="full_name">Họ và Tên</Label>
                                 <Input
                                     id="full_name"
                                     value={profileForm.full_name}
@@ -148,7 +148,7 @@ export function Profile() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="personal_id">Personal ID</Label>
+                                <Label htmlFor="personal_id">CMND/CCCD</Label>
                                 <Input
                                     id="personal_id"
                                     value={user?.personal_id || ''}
@@ -158,7 +158,7 @@ export function Profile() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="phone">Phone Number</Label>
+                                <Label htmlFor="phone">Số Điện Thoại</Label>
                                 <Input
                                     id="phone"
                                     value={profileForm.phone}
@@ -168,7 +168,7 @@ export function Profile() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="birth_date">Birth Date</Label>
+                                <Label htmlFor="birth_date">Ngày Sinh</Label>
                                 <Input
                                     id="birth_date"
                                     value={user?.birth_date || ''}
@@ -178,36 +178,36 @@ export function Profile() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="age">Age</Label>
+                                <Label htmlFor="age">Tuổi</Label>
                                 <Input
                                     id="age"
-                                    value={user?.birth_date ? `${calculateAge(user.birth_date)} years` : ''}
+                                    value={user?.birth_date ? `${calculateAge(user.birth_date)} tuổi` : ''}
                                     disabled
                                     className="bg-gray-50"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="gender">Gender</Label>
+                                <Label htmlFor="gender">Giới Tính</Label>
                                 <Select
                                     value={profileForm.gender}
                                     onValueChange={(value) => setProfileForm({ ...profileForm, gender: value })}
                                     disabled={!isEditing}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select gender" />
+                                        <SelectValue placeholder="Chọn giới tính" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Male">Male</SelectItem>
-                                        <SelectItem value="Female">Female</SelectItem>
-                                        <SelectItem value="Other">Other</SelectItem>
+                                        <SelectItem value="Male">Nam</SelectItem>
+                                        <SelectItem value="Female">Nữ</SelectItem>
+                                        <SelectItem value="Other">Khác</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="address">Address</Label>
+                            <Label htmlFor="address">Địa Chỉ</Label>
                             <Input
                                 id="address"
                                 value={profileForm.address}
@@ -224,7 +224,7 @@ export function Profile() {
                                     className="bg-blue-600 hover:bg-blue-700"
                                 >
                                     <Save className="h-4 w-4 mr-2" />
-                                    {isSaving ? 'Saving...' : 'Save Changes'}
+                                    {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
                                 </Button>
                             </div>
                         )}
@@ -236,35 +236,35 @@ export function Profile() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Shield className="h-5 w-5" />
-                            Insurance
+                            Bảo Hiểm
                         </CardTitle>
-                        <CardDescription>Your insurance details</CardDescription>
+                        <CardDescription>Thông tin bảo hiểm của bạn</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="insurance_provider">Insurance Provider</Label>
+                            <Label htmlFor="insurance_provider">Nhà Cung Cấp Bảo Hiểm</Label>
                             <Input
                                 id="insurance_provider"
                                 value={profileForm.insurance_provider}
                                 onChange={(e) => setProfileForm({ ...profileForm, insurance_provider: e.target.value })}
                                 disabled={!isEditing}
-                                placeholder="Blue Cross Blue Shield"
+                                placeholder="Bảo hiểm Việt Nam"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="policy_number">Policy Number</Label>
+                            <Label htmlFor="policy_number">Số Hợp Đồng</Label>
                             <Input
                                 id="policy_number"
                                 value={profileForm.policy_number}
                                 onChange={(e) => setProfileForm({ ...profileForm, policy_number: e.target.value })}
                                 disabled={!isEditing}
-                                placeholder="BC12345678"
+                                placeholder="BH12345678"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="insurance_validity">Valid Until</Label>
+                            <Label htmlFor="insurance_validity">Hiệu Lực Đến Ngày</Label>
                             <Input
                                 id="insurance_validity"
                                 type="date"
@@ -277,7 +277,7 @@ export function Profile() {
                         {user?.insurance_provider && (
                             <div className="p-3 bg-green-50 rounded-lg">
                                 <p className="text-sm text-green-700">
-                                    ✓ Insurance coverage is active
+                                    ✓ Bảo hiểm có hiệu lực
                                 </p>
                             </div>
                         )}
@@ -290,36 +290,36 @@ export function Profile() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Key className="h-5 w-5" />
-                        Security Settings
+                        Cài Đặt Bảo Mật
                     </CardTitle>
-                    <CardDescription>Manage your account security</CardDescription>
+                    <CardDescription>Quản lý bảo mật tài khoản của bạn</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
                         <div className="flex items-center justify-between p-4 border rounded-lg">
                             <div>
-                                <h4 className="font-medium">Password</h4>
+                                <h4 className="font-medium">Mật Khẩu</h4>
                                 <p className="text-sm text-muted-foreground">
-                                    Last changed: Never (Demo account)
+                                    Thay đổi lần cuối: Chưa (Tài khoản demo)
                                 </p>
                             </div>
                             <Button
                                 variant="outline"
                                 onClick={() => setShowPasswordDialog(true)}
                             >
-                                Change Password
+                                Đổi Mật Khẩu
                             </Button>
                         </div>
 
                         <div className="flex items-center justify-between p-4 border rounded-lg">
                             <div>
-                                <h4 className="font-medium">Two-Factor Authentication</h4>
+                                <h4 className="font-medium">Xác Thực Hai Yếu Tố</h4>
                                 <p className="text-sm text-muted-foreground">
-                                    Add an extra layer of security to your account
+                                    Thêm một lớp bảo mật bổ sung cho tài khoản của bạn
                                 </p>
                             </div>
                             <Button variant="outline" disabled>
-                                Enable 2FA
+                                Bật 2FA
                             </Button>
                         </div>
                     </div>
@@ -330,9 +330,9 @@ export function Profile() {
             <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Change Password</DialogTitle>
+                        <DialogTitle>Đổi Mật Khẩu</DialogTitle>
                         <DialogDescription>
-                            Enter your current password and choose a new one
+                            Nhập mật khẩu hiện tại và chọn mật khẩu mới
                         </DialogDescription>
                     </DialogHeader>
 

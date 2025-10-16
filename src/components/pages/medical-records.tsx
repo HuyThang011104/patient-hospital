@@ -103,7 +103,7 @@ export function MedicalRecords() {
     };
 
     const handleDownloadPDF = (recordId: string) => {
-        toast.success('Medical record PDF download started');
+        toast.success('Bắt đầu tải PDF hồ sơ y tế');
     };
 
     const getLabTestsForRecord = (recordId: string) => {
@@ -117,8 +117,8 @@ export function MedicalRecords() {
     return (
         <div className="p-6 space-y-6">
             <div>
-                <h1>Medical Records</h1>
-                <p className="text-muted-foreground">Access your complete medical history and documents</p>
+                <h1>Hồ Sơ Y Tế</h1>
+                <p className="text-muted-foreground">Truy cập lịch sử y tế và tài liệu hoàn chỉnh của bạn</p>
             </div>
 
             {/* Summary Card */}
@@ -126,23 +126,23 @@ export function MedicalRecords() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5" />
-                        Medical Records Summary
+                        Tóm Tắt Hồ Sơ Y Tế
                     </CardTitle>
-                    <CardDescription>Overview of your medical visits and treatments</CardDescription>
+                    <CardDescription>Tổng quan về các lần khám và điều trị của bạn</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="text-center p-4 bg-blue-50 rounded-lg">
                             <div className="text-2xl font-bold text-blue-600">{medicalRecords.length}</div>
-                            <p className="text-sm text-muted-foreground">Total Records</p>
+                            <p className="text-sm text-muted-foreground">Tổng Số Hồ Sơ</p>
                         </div>
                         <div className="text-center p-4 bg-green-50 rounded-lg">
                             <div className="text-2xl font-bold text-green-600">{labTests.length}</div>
-                            <p className="text-sm text-muted-foreground">Lab Tests</p>
+                            <p className="text-sm text-muted-foreground">Xét Nghiệm</p>
                         </div>
                         <div className="text-center p-4 bg-purple-50 rounded-lg">
                             <div className="text-2xl font-bold text-purple-600">{prescriptions.length}</div>
-                            <p className="text-sm text-muted-foreground">Prescriptions</p>
+                            <p className="text-sm text-muted-foreground">Đơn Thuốc</p>
                         </div>
                     </div>
                 </CardContent>
@@ -150,7 +150,7 @@ export function MedicalRecords() {
 
             {/* Medical Records List */}
             <div className="space-y-4">
-                <h2>All Medical Records</h2>
+                <h2>Tất Cả Hồ Sơ Y Tế</h2>
 
                 {medicalRecords.map((record) => (
                     <Card key={record.id} className="hover:shadow-md transition-shadow">
@@ -181,7 +181,7 @@ export function MedicalRecords() {
                                         onClick={() => handleViewDetails(record)}
                                     >
                                         <Eye className="h-3 w-3 mr-1" />
-                                        View Details
+                                        Xem Chi Tiết
                                     </Button>
                                     <Button
                                         variant="outline"
@@ -201,13 +201,13 @@ export function MedicalRecords() {
                                 {getLabTestsForRecord(record.id).length > 0 && (
                                     <Badge variant="secondary" className="flex items-center gap-1">
                                         <TestTube className="h-3 w-3" />
-                                        {getLabTestsForRecord(record.id).length} Lab Test(s)
+                                        {getLabTestsForRecord(record.id).length} Xét Nghiệm
                                     </Badge>
                                 )}
                                 {getPrescriptionsForRecord(record.id).length > 0 && (
                                     <Badge variant="secondary" className="flex items-center gap-1">
                                         <Pill className="h-3 w-3" />
-                                        {getPrescriptionsForRecord(record.id).length} Prescription(s)
+                                        {getPrescriptionsForRecord(record.id).length} Đơn Thuốc
                                     </Badge>
                                 )}
                             </div>
@@ -220,9 +220,9 @@ export function MedicalRecords() {
             <Dialog open={showDetails} onOpenChange={setShowDetails}>
                 <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Medical Record Details</DialogTitle>
+                        <DialogTitle>Chi Tiết Hồ Sơ Y Tế</DialogTitle>
                         <DialogDescription>
-                            Complete information about your medical visit
+                            Thông tin chi tiết về lần khám của bạn
                         </DialogDescription>
                     </DialogHeader>
 
@@ -231,20 +231,20 @@ export function MedicalRecords() {
                             {/* Basic Information */}
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="text-lg">Visit Information</CardTitle>
+                                    <CardTitle className="text-lg">Thông Tin Lượt Khám</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Record ID</Label>
+                                            <Label>Mã Hồ Sơ</Label>
                                             <p className="font-mono">#{selectedRecord.id}</p>
                                         </div>
                                         <div>
-                                            <Label>Visit Date</Label>
+                                            <Label>Ngày Khám</Label>
                                             <p>{formatDate(selectedRecord.record_date.toString())}</p>
                                         </div>
                                         <div>
-                                            <Label>Doctor</Label>
+                                            <Label>Bác Sĩ</Label>
                                             <p>{selectedRecord.doctor.full_name}</p>
                                         </div>
                                         {/* <div>
@@ -254,18 +254,18 @@ export function MedicalRecords() {
                                     </div>
 
                                     <div>
-                                        <Label>Diagnosis</Label>
+                                        <Label>Chẩn Đoán</Label>
                                         <p className="mt-1 p-3 bg-blue-50 rounded-lg">{selectedRecord.diagnosis}</p>
                                     </div>
 
                                     <div>
-                                        <Label>Treatment</Label>
+                                        <Label>Điều Trị</Label>
                                         <p className="mt-1 p-3 bg-green-50 rounded-lg">{selectedRecord.treatment}</p>
                                     </div>
 
                                     {selectedRecord.notes && (
                                         <div>
-                                            <Label>Additional Notes</Label>
+                                            <Label>Ghi Chú Thêm</Label>
                                             <p className="mt-1 p-3 bg-gray-50 rounded-lg">{selectedRecord.notes}</p>
                                         </div>
                                     )}
@@ -275,8 +275,8 @@ export function MedicalRecords() {
                             {/* Related Information Tabs */}
                             <Tabs defaultValue="lab-tests" className="w-full">
                                 <TabsList>
-                                    <TabsTrigger value="lab-tests">Lab Tests</TabsTrigger>
-                                    <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
+                                    <TabsTrigger value="lab-tests">Xét Nghiệm</TabsTrigger>
+                                    <TabsTrigger value="prescriptions">Đơn Thuốc</TabsTrigger>
                                 </TabsList>
 
                                 <TabsContent value="lab-tests" className="space-y-4">
@@ -284,7 +284,7 @@ export function MedicalRecords() {
                                         <CardHeader>
                                             <CardTitle className="text-lg flex items-center gap-2">
                                                 <TestTube className="h-5 w-5" />
-                                                Lab Test Results
+                                                Kết Quả Xét Nghiệm
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent>
@@ -298,7 +298,7 @@ export function MedicalRecords() {
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-4 text-sm">
                                                                 <div>
-                                                                    <Label>Result</Label>
+                                                                    <Label>Kết Quả</Label>
                                                                     <p className="font-medium">{test.result}</p>
                                                                 </div>
                                                             </div>
@@ -306,7 +306,7 @@ export function MedicalRecords() {
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <p className="text-muted-foreground text-center py-4">No lab tests for this record</p>
+                                                <p className="text-muted-foreground text-center py-4">Không có xét nghiệm cho hồ sơ này</p>
                                             )}
                                         </CardContent>
                                     </Card>
@@ -317,7 +317,7 @@ export function MedicalRecords() {
                                         <CardHeader>
                                             <CardTitle className="text-lg flex items-center gap-2">
                                                 <Pill className="h-5 w-5" />
-                                                Prescribed Medications
+                                                Thuốc Được Kê Đơn
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent>
@@ -331,15 +331,15 @@ export function MedicalRecords() {
                                                             </div>
                                                             <div className="grid grid-cols-3 gap-4 text-sm">
                                                                 <div>
-                                                                    <Label>Dosage</Label>
+                                                                    <Label>Liều Lượng</Label>
                                                                     <p>{prescription.dosage}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <Label>Frequency</Label>
+                                                                    <Label>Tần Suất</Label>
                                                                     <p>{prescription.frequency}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <Label>Duration</Label>
+                                                                    <Label>Thời Gian</Label>
                                                                     <p>{prescription.duration}</p>
                                                                 </div>
                                                             </div>
@@ -347,7 +347,7 @@ export function MedicalRecords() {
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <p className="text-muted-foreground text-center py-4">No prescriptions for this record</p>
+                                                <p className="text-muted-foreground text-center py-4">Không có đơn thuốc cho hồ sơ này</p>
                                             )}
                                         </CardContent>
                                     </Card>
@@ -362,10 +362,10 @@ export function MedicalRecords() {
                             onClick={() => selectedRecord && handleDownloadPDF(selectedRecord.id)}
                         >
                             <Download className="h-4 w-4 mr-2" />
-                            Download PDF
+                            Tải PDF
                         </Button>
                         <Button variant="outline" onClick={() => setShowDetails(false)}>
-                            Close
+                            Đóng
                         </Button>
                     </DialogFooter>
                 </DialogContent>

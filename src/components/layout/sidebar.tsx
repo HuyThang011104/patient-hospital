@@ -21,13 +21,13 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     const { logout } = useAuth();
 
     const menuItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'book-appointment', label: 'Book Appointment', icon: Calendar },
-        { id: 'my-appointments', label: 'My Appointments', icon: CalendarCheck },
-        { id: 'medical-records', label: 'Medical Records', icon: FileText },
-        { id: 'prescriptions', label: 'Prescriptions', icon: Pill },
-        { id: 'payments', label: 'Payments', icon: CreditCard },
-        { id: 'profile', label: 'Profile', icon: User },
+        { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard },
+        { id: 'book-appointment', label: 'Đặt lich hẹn', icon: Calendar },
+        { id: 'my-appointments', label: 'Lich hẹn của tôi', icon: CalendarCheck },
+        { id: 'medical-records', label: 'Hồ sơ y tế', icon: FileText },
+        { id: 'prescriptions', label: 'Đơn thuốc', icon: Pill },
+        { id: 'payments', label: 'Thanh toán', icon: CreditCard },
+        { id: 'profile', label: 'Hồ sơ cá nhân', icon: User }
     ];
 
     return (
@@ -38,8 +38,8 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                         <Activity className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="font-semibold text-lg">MediCare</h1>
-                        <p className="text-sm text-muted-foreground">Patient Portal</p>
+                        <h1 className="font-semibold text-lg">VinMec</h1>
+                        <p className="text-sm text-muted-foreground">Cổng thông tin bệnh nhân</p>
                     </div>
                 </div>
             </div>
@@ -52,8 +52,8 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                             key={item.id}
                             variant={currentPage === item.id ? "default" : "ghost"}
                             className={`w-full justify-start gap-3 ${currentPage === item.id
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                    : 'hover:bg-gray-100'
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'hover:bg-gray-100'
                                 }`}
                             onClick={() => onPageChange(item.id)}
                         >
@@ -71,7 +71,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                     onClick={logout}
                 >
                     <LogOut className="h-4 w-4" />
-                    Logout
+                    Đăng xuất
                 </Button>
             </div>
         </div>
