@@ -84,7 +84,7 @@ export function Prescriptions() {
     }, [fetchPrescriptions]);
 
     const formatDate = (dateString: string | Date) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
+        return new Date(dateString).toLocaleDateString('vi-VN', {
             year: 'numeric',
             month: 'short',
             day: 'numeric'
@@ -112,26 +112,26 @@ export function Prescriptions() {
     const uniqueDoctors = Array.from(new Set(prescriptions.map(p => p.medical_record.doctor.full_name)));
 
     const months = [
-        { value: '0', label: 'January' },
-        { value: '1', label: 'February' },
-        { value: '2', label: 'March' },
-        { value: '3', label: 'April' },
-        { value: '4', label: 'May' },
-        { value: '5', label: 'June' },
-        { value: '6', label: 'July' },
-        { value: '7', label: 'August' },
-        { value: '8', label: 'September' },
-        { value: '9', label: 'October' },
-        { value: '10', label: 'November' },
-        { value: '11', label: 'December' },
+        { value: '0', label: 'Tháng Một' },
+        { value: '1', label: 'Tháng Hai' },
+        { value: '2', label: 'Tháng Ba' },
+        { value: '3', label: 'Tháng Tư' },
+        { value: '4', label: 'Tháng Năm' },
+        { value: '5', label: 'Tháng Sáu' },
+        { value: '6', label: 'Tháng Bảy' },
+        { value: '7', label: 'Tháng Tám' },
+        { value: '8', label: 'Tháng Chín' },
+        { value: '9', label: 'Tháng Mười' },
+        { value: '10', label: 'Tháng Mười Một' },
+        { value: '11', label: 'Tháng Mười Hai' },
     ];
 
     if (loading) {
         return (
             <div className="p-6 space-y-6">
                 <div>
-                    <h1>Prescriptions</h1>
-                    <p className="text-muted-foreground">Loading your prescribed medications...</p>
+                    <h1>Đơn Thuốc</h1>
+                    <p className="text-muted-foreground">Đang tải các loại thuốc được kê đơn của bạn...</p>
                 </div>
                 <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -143,8 +143,8 @@ export function Prescriptions() {
     return (
         <div className="p-6 space-y-6">
             <div>
-                <h1>Prescriptions</h1>
-                <p className="text-muted-foreground">View and manage your prescribed medications</p>
+                <h1>Đơn Thuốc</h1>
+                <p className="text-muted-foreground">Xem và quản lý các loại thuốc được kê đơn của bạn</p>
             </div>
 
             {/* Summary Card */}
@@ -152,25 +152,25 @@ export function Prescriptions() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Pill className="h-5 w-5" />
-                        Prescription Summary
+                        Tóm Tắt Đơn Thuốc
                     </CardTitle>
-                    <CardDescription>Overview of your prescribed medications</CardDescription>
+                    <CardDescription>Tổng quan về các loại thuốc được kê đơn của bạn</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="text-center p-4 bg-purple-50 rounded-lg">
                             <div className="text-2xl font-bold text-purple-600">{prescriptions.length}</div>
-                            <p className="text-sm text-muted-foreground">Total Prescriptions</p>
+                            <p className="text-sm text-muted-foreground">Tổng Đơn Thuốc</p>
                         </div>
                         <div className="text-center p-4 bg-blue-50 rounded-lg">
                             <div className="text-2xl font-bold text-blue-600">{uniqueDoctors.length}</div>
-                            <p className="text-sm text-muted-foreground">Prescribing Doctors</p>
+                            <p className="text-sm text-muted-foreground">Bác Sĩ Kê Đơn</p>
                         </div>
                         <div className="text-center p-4 bg-green-50 rounded-lg">
                             <div className="text-2xl font-bold text-green-600">
                                 {Array.from(new Set(prescriptions.map(p => p.medicine.name))).length}
                             </div>
-                            <p className="text-sm text-muted-foreground">Unique Medicines</p>
+                            <p className="text-sm text-muted-foreground">Loại Thuốc Khác Nhau</p>
                         </div>
                     </div>
                 </CardContent>
@@ -181,17 +181,17 @@ export function Prescriptions() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Filter className="h-5 w-5" />
-                        Filter Prescriptions
+                        Lọc Đơn Thuốc
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Search Medicine</label>
+                            <label className="text-sm font-medium">Tìm Kiếm Thuốc</label>
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search by medicine name..."
+                                    placeholder="Tìm kiếm theo tên thuốc..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="pl-10"
@@ -200,13 +200,13 @@ export function Prescriptions() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Filter by Doctor</label>
+                            <label className="text-sm font-medium">Lọc Theo Bác Sĩ</label>
                             <Select value={filterDoctor} onValueChange={setFilterDoctor}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="All doctors" />
+                                    <SelectValue placeholder="Tất cả bác sĩ" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All doctors</SelectItem>
+                                    <SelectItem value="all">Tất cả bác sĩ</SelectItem>
                                     {uniqueDoctors.map((doctor) => (
                                         <SelectItem key={doctor} value={doctor}>
                                             {doctor}
@@ -217,13 +217,13 @@ export function Prescriptions() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Filter by Month</label>
+                            <label className="text-sm font-medium">Lọc Theo Tháng</label>
                             <Select value={filterMonth} onValueChange={setFilterMonth}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="All months" />
+                                    <SelectValue placeholder="Tất cả tháng" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All months</SelectItem>
+                                    <SelectItem value="all">Tất cả tháng</SelectItem>
                                     {months.map((month) => (
                                         <SelectItem key={month.value} value={month.value}>
                                             {month.label}
@@ -239,9 +239,9 @@ export function Prescriptions() {
             {/* Prescriptions List */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2>All Prescriptions</h2>
+                    <h2>Tất Cả Đơn Thuốc</h2>
                     <Badge variant="secondary">
-                        {filteredPrescriptions.length} prescription(s) found
+                        {filteredPrescriptions.length} đơn thuốc được tìm thấy
                     </Badge>
                 </div>
 
@@ -254,7 +254,7 @@ export function Prescriptions() {
                                     <div className="flex items-center gap-2 mb-4">
                                         <Calendar className="h-4 w-4 text-muted-foreground" />
                                         <h3 className="font-medium">{formatDate(new Date(date))}</h3>
-                                        <Badge variant="outline">{prescriptions.length} item(s)</Badge>
+                                        <Badge variant="outline">{prescriptions.length} mục</Badge>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -279,19 +279,19 @@ export function Prescriptions() {
                                                 <CardContent className="space-y-3">
                                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                                         <div>
-                                                            <span className="text-muted-foreground">Dosage:</span>
+                                                            <span className="text-muted-foreground">Liều Lượng:</span>
                                                             <p className="font-medium">{prescription.dosage}</p>
                                                         </div>
                                                         <div>
-                                                            <span className="text-muted-foreground">Frequency:</span>
+                                                            <span className="text-muted-foreground">Tần Suất:</span>
                                                             <p className="font-medium">{prescription.frequency}</p>
                                                         </div>
                                                         <div>
-                                                            <span className="text-muted-foreground">Duration:</span>
+                                                            <span className="text-muted-foreground">Thời Gian:</span>
                                                             <p className="font-medium">{prescription.duration}</p>
                                                         </div>
                                                         <div>
-                                                            <span className="text-muted-foreground">Prescribed:</span>
+                                                            <span className="text-muted-foreground">Ngày Kê Đơn:</span>
                                                             <p className="font-medium">{formatDate(prescription.medical_record.record_date)}</p>
                                                         </div>
                                                     </div>
@@ -299,7 +299,7 @@ export function Prescriptions() {
                                                     <div className="pt-2 border-t">
                                                         <Button variant="outline" size="sm" className="w-full">
                                                             <FileText className="h-3 w-3 mr-2" />
-                                                            View Medical Record
+                                                            Xem Hồ Sơ Y Tế
                                                         </Button>
                                                     </div>
                                                 </CardContent>
@@ -313,11 +313,11 @@ export function Prescriptions() {
                     <Card>
                         <CardContent className="text-center py-12">
                             <Pill className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <h3 className="font-medium mb-2">No prescriptions found</h3>
+                            <h3 className="font-medium mb-2">Không tìm thấy đơn thuốc</h3>
                             <p className="text-sm text-muted-foreground">
                                 {searchTerm || filterDoctor || filterMonth
-                                    ? 'Try adjusting your filters to see more results'
-                                    : 'You don\'t have any prescriptions yet'
+                                    ? 'Thử điều chỉnh bộ lọc để xem thêm kết quả'
+                                    : 'Bạn chưa có đơn thuốc nào'
                                 }
                             </p>
                         </CardContent>
