@@ -22,7 +22,7 @@ export function Dashboard({ onPageChange }: DashboardProps) {
 
         try {
             setLoading(true);
-            
+
             // Fetch appointments
             const { data: appointmentsData, error: appointmentsError } = await supabase
                 .from('appointment')
