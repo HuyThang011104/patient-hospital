@@ -31,10 +31,10 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
     const { user } = useAuth();
 
     const steps = [
-        { number: 1, title: 'Select Department', description: 'Choose medical department' },
-        { number: 2, title: 'Select Doctor', description: 'Pick your preferred doctor' },
-        { number: 3, title: 'Choose Date & Time', description: 'Select appointment slot' },
-        { number: 4, title: 'Confirm Appointment', description: 'Review and confirm' }
+        { number: 1, title: 'Chọn Khoa', description: 'Chọn khoa y tế' },
+        { number: 2, title: 'Chọn Bác Sĩ', description: 'Chọn bác sĩ bạn mong muốn' },
+        { number: 3, title: 'Chọn Ngày & Giờ', description: 'Chọn lịch hẹn' },
+        { number: 4, title: 'Xác Nhận Lịch Hẹn', description: 'Xem lại và xác nhận' }
     ];
 
     useEffect(() => {
@@ -124,16 +124,16 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
 
             if (error) {
                 console.error('Error booking appointment:', error);
-                toast.error('Failed to book appointment. Please try again.');
+                toast.error('Đặt lịch hẹn thất bại. Vui lòng thử lại.');
                 return;
             }
 
-            toast.success('Appointment booked successfully!');
+            toast.success('Đặt lịch hẹn thành công!');
             setShowConfirmation(false);
             onPageChange('my-appointments');
         } catch (error) {
             console.error('Unexpected error booking appointment:', error);
-            toast.error('An unexpected error occurred. Please try again.');
+            toast.error('Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.');
         }
     };
 
@@ -176,8 +176,8 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
 
     const renderStep1 = () => (
         <div className="space-y-4">
-            <h2>Select Department</h2>
-            <p className="text-muted-foreground">Choose the medical department for your appointment</p>
+            <h2>Chọn Khoa</h2>
+            <p className="text-muted-foreground">Chọn khoa y tế cho lịch hẹn của bạn</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {specialty.map((department) => (
@@ -206,8 +206,8 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
 
     const renderStep2 = () => (
         <div className="space-y-4">
-            <h2>Select Doctor</h2>
-            <p className="text-muted-foreground">Choose your preferred doctor from {specialty.find(d => d.id === selectedDepartment)?.name}</p>
+            <h2>Chọn Bác Sĩ</h2>
+            <p className="text-muted-foreground">Chọn bác sĩ bạn mong muốn từ {specialty.find(d => d.id === selectedDepartment)?.name}</p>
 
             <div className="grid grid-cols-1 gap-4">
                 {filteredDoctors.map((doctor) => (
@@ -236,13 +236,13 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
 
     const renderStep3 = () => (
         <div className="space-y-6">
-            <h2>Choose Date & Time</h2>
-            <p className="text-muted-foreground">Select your preferred appointment date and time slot</p>
+            <h2>Chọn Ngày & Giờ</h2>
+            <p className="text-muted-foreground">Chọn ngày và giờ cho lịch hẹn của bạn</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-lg">Select Date</CardTitle>
+                        <CardTitle className="text-lg">Chọn Ngày</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Calendar
@@ -257,7 +257,7 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-lg">Available Time Slots</CardTitle>
+                        <CardTitle className="text-lg">Khung Giờ Hẹn Có Sẵn</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {selectedDate ? (
@@ -268,15 +268,15 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                                             <RadioGroupItem value={shift.name} id={shift.name} />
                                             <Label htmlFor={shift.name} className="flex items-center gap-2 cursor-pointer">
                                                 <Clock className="h-4 w-4" />
-                                                {shift.name} Shift
-                                                <Badge variant="outline">Available</Badge>
+                                                Ca {shift.name}
+                                                <Badge variant="outline">Có Sẵn</Badge>
                                             </Label>
                                         </div>
                                     ))}
                                 </div>
                             </RadioGroup>
                         ) : (
-                            <p className="text-muted-foreground">Please select a date first</p>
+                            <p className="text-muted-foreground">Vui lòng chọn ngày trước</p>
                         )}
                     </CardContent>
                 </Card>
@@ -286,27 +286,27 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
 
     const renderStep4 = () => (
         <div className="space-y-6">
-            <h2>Confirm Appointment</h2>
-            <p className="text-muted-foreground">Please review your appointment details before confirming</p>
+            <h2>Xác Nhận Lịch Hẹn</h2>
+            <p className="text-muted-foreground">Vui lòng xem lại chi tiết lịch hẹn trước khi xác nhận</p>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Appointment Summary</CardTitle>
+                    <CardTitle>Tóm Tắt Lịch Hẹn</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label className="text-sm text-muted-foreground">Department</Label>
+                            <Label className="text-sm text-muted-foreground">Khoa</Label>
                             <p className="font-medium">{specialty.find(d => d.id === selectedDepartment)?.name}</p>
                         </div>
                         <div>
-                            <Label className="text-sm text-muted-foreground">Doctor</Label>
+                            <Label className="text-sm text-muted-foreground">Bác Sĩ</Label>
                             <p className="font-medium">{selectedDoctorData?.full_name}</p>
                         </div>
                         <div>
-                            <Label className="text-sm text-muted-foreground">Date</Label>
+                            <Label className="text-sm text-muted-foreground">Ngày</Label>
                             <p className="font-medium">
-                                {selectedDate?.toLocaleDateString('en-US', {
+                                {selectedDate?.toLocaleDateString('vi-VN', {
                                     weekday: 'long',
                                     year: 'numeric',
                                     month: 'long',
@@ -315,13 +315,13 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                             </p>
                         </div>
                         <div>
-                            <Label className="text-sm text-muted-foreground">Time</Label>
-                            <p className="font-medium">{selectedShift} Shift</p>
+                            <Label className="text-sm text-muted-foreground">Giờ</Label>
+                            <p className="font-medium">Ca {selectedShift}</p>
                         </div>
                     </div>
 
                     <div className="border-t pt-4">
-                        <Label className="text-sm text-muted-foreground">Specialty</Label>
+                        <Label className="text-sm text-muted-foreground">Chuyên Khoa</Label>
                         <p className="font-medium">{selectedDoctorData?.specialty?.name}</p>
                     </div>
                 </CardContent>
@@ -332,8 +332,8 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
     return (
         <div className="p-6 max-w-4xl mx-auto">
             <div className="mb-6">
-                <h1>Book Appointment</h1>
-                <p className="text-muted-foreground">Schedule your medical appointment in a few simple steps</p>
+                <h1>Đặt Lịch Hẹn</h1>
+                <p className="text-muted-foreground">Đặt lịch hẹn y tế của bạn trong vài bước đơn giản</p>
             </div>
 
             {renderStepIndicator()}
@@ -352,7 +352,7 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                     disabled={currentStep === 1}
                 >
                     <ChevronLeft className="h-4 w-4 mr-2" />
-                    Back
+                    Quay Lại
                 </Button>
 
                 <Button
@@ -360,7 +360,7 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                     disabled={!canProceed()}
                     className="bg-blue-600 hover:bg-blue-700"
                 >
-                    {currentStep === 4 ? 'Book Appointment' : 'Next'}
+                    {currentStep === 4 ? 'Đặt Lịch Hẹn' : 'Tiếp Tục'}
                     {currentStep < 4 && <ChevronRight className="h-4 w-4 ml-2" />}
                 </Button>
             </div>
@@ -368,25 +368,25 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
             <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Confirm Appointment</DialogTitle>
+                        <DialogTitle>Xác Nhận Lịch Hẹn</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to book this appointment?
+                            Bạn có chắc chắn muốn đặt lịch hẹn này không?
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
                         <div className="space-y-2">
-                            <p><strong>Doctor:</strong> {selectedDoctorData?.full_name}</p>
-                            <p><strong>Department:</strong> {specialty.find(d => d.id === selectedDepartment)?.name}</p>
-                            <p><strong>Date:</strong> {selectedDate?.toLocaleDateString()}</p>
-                            <p><strong>Time:</strong> {selectedShift} Shift</p>
+                            <p><strong>Bác Sĩ:</strong> {selectedDoctorData?.full_name}</p>
+                            <p><strong>Khoa:</strong> {specialty.find(d => d.id === selectedDepartment)?.name}</p>
+                            <p><strong>Ngày:</strong> {selectedDate?.toLocaleDateString('vi-VN')}</p>
+                            <p><strong>Giờ:</strong> Ca {selectedShift}</p>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowConfirmation(false)}>
-                            Cancel
+                            Hủy Bỏ
                         </Button>
                         <Button onClick={handleConfirmAppointment} className="bg-blue-600 hover:bg-blue-700">
-                            Confirm Booking
+                            Xác Nhận Đặt Lịch
                         </Button>
                     </DialogFooter>
                 </DialogContent>

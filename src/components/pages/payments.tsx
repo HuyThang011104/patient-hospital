@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -9,15 +8,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from '../ui/label';
 import { CreditCard, DollarSign, Calendar, Eye, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { mockPayments } from '@/utils/mock/mock-data';
+import { supabase } from '@/utils/backend/client';
+import type { IPayment } from '@/interfaces/payment';
+import type { PaymentMethod, PaymentStatus } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
 
 export function Payments() {
-    const [selectedPayment, setSelectedPayment] = useState<any>(null);
+    const [payments, setPayments] = useState<IPayment[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedPayment, setSelectedPayment] = useState<IPayment | null>(null);
     const [showDetails, setShowDetails] = useState(false);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState('card');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Card');
+    const { user } = useAuth();
 
-    const formatDate = (dateString: string) => {
+    const fetchPayments = useCallback(async () => {
+        if (!user) return;
+
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('payment')
+                .select('*')
+                .eq('patient_id', user.id)
+                .order('payment_date', { ascending: false });
+
+            if (error) throw error;
+            setPayments(data || []);
+        } catch (error) {
+            console.error('Error fetching payments:', error);
+            setPayments([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchPayments();
+    }, [fetchPayments]);
+
+    const formatDate = (dateString: string | Date) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
@@ -25,7 +55,7 @@ export function Payments() {
         });
     };
 
-    const getStatusColor = (status: string) => {
+    const getStatusColor = (status: PaymentStatus) => {
         switch (status) {
             case 'Pending':
                 return 'bg-yellow-100 text-yellow-800';
@@ -38,7 +68,7 @@ export function Payments() {
         }
     };
 
-    const getMethodIcon = (method: string) => {
+    const getMethodIcon = (method: PaymentMethod) => {
         switch (method) {
             case 'Card':
                 return <CreditCard className="h-4 w-4" />;
@@ -53,36 +83,66 @@ export function Payments() {
         }
     };
 
-    const totalPaid = mockPayments
+    const totalPaid = payments
         .filter(payment => payment.status === 'Paid')
         .reduce((sum, payment) => sum + payment.amount, 0);
 
-    const pendingAmount = mockPayments
+    const pendingAmount = payments
         .filter(payment => payment.status === 'Pending')
         .reduce((sum, payment) => sum + payment.amount, 0);
 
-    const pendingPayments = mockPayments.filter(payment => payment.status === 'Pending');
+    const pendingPayments = payments.filter(payment => payment.status === 'Pending');
 
-    const handleViewDetails = (payment: any) => {
+    const handleViewDetails = (payment: IPayment) => {
         setSelectedPayment(payment);
         setShowDetails(true);
     };
 
-    const handlePayNow = (payment: any) => {
+    const handlePayNow = (payment: IPayment) => {
         setSelectedPayment(payment);
         setShowPaymentDialog(true);
     };
 
-    const processPayment = () => {
-        if (!paymentMethod) {
+    const processPayment = async () => {
+        if (!paymentMethod || !selectedPayment) {
             toast.error('Please select a payment method');
             return;
         }
 
-        toast.success('Payment processed successfully!');
-        setShowPaymentDialog(false);
-        setPaymentMethod('');
+        try {
+            const { error } = await supabase
+                .from('payment')
+                .update({ 
+                    status: 'Paid',
+                    payment_date: new Date().toISOString()
+                })
+                .eq('id', selectedPayment.id);
+
+            if (error) throw error;
+
+            toast.success('Payment processed successfully!');
+            setShowPaymentDialog(false);
+            setPaymentMethod('Card');
+            fetchPayments(); // Refresh the payments list
+        } catch (error) {
+            console.error('Error processing payment:', error);
+            toast.error('Failed to process payment. Please try again.');
+        }
     };
+
+    if (loading) {
+        return (
+            <div className="p-6 space-y-6">
+                <div>
+                    <h1>Payments</h1>
+                    <p className="text-muted-foreground">Loading your payment history...</p>
+                </div>
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-6">
@@ -153,9 +213,9 @@ export function Payments() {
                                             <DollarSign className="h-5 w-5 text-yellow-600" />
                                         </div>
                                         <div>
-                                            <p className="font-medium">{payment.description}</p>
+                                            <p className="font-medium">Medical Payment</p>
                                             <p className="text-sm text-muted-foreground">
-                                                Due: {formatDate(payment.date)} • ${payment.amount.toFixed(2)}
+                                                Due: {payment.payment_date ? formatDate(payment.payment_date) : 'Not set'} • ${payment.amount.toFixed(2)}
                                             </p>
                                         </div>
                                     </div>
@@ -192,17 +252,17 @@ export function Payments() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {mockPayments
-                                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                            {payments
+                                .sort((a, b) => new Date(b.payment_date || '').getTime() - new Date(a.payment_date || '').getTime())
                                 .map((payment) => (
                                     <TableRow key={payment.id}>
                                         <TableCell className="font-mono text-sm">#{payment.id}</TableCell>
-                                        <TableCell>{payment.description}</TableCell>
+                                        <TableCell>Medical Payment</TableCell>
                                         <TableCell className="font-medium">${payment.amount.toFixed(2)}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1">
                                                 <Calendar className="h-3 w-3 text-muted-foreground" />
-                                                {formatDate(payment.date)}
+                                                {payment.payment_date ? formatDate(payment.payment_date) : 'Not set'}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -274,8 +334,8 @@ export function Payments() {
                                     <p className="font-medium text-lg">${selectedPayment.amount.toFixed(2)}</p>
                                 </div>
                                 <div>
-                                    <Label>Date</Label>
-                                    <p>{formatDate(selectedPayment.date)}</p>
+                                    <Label>Payment Date</Label>
+                                    <p>{selectedPayment.payment_date ? formatDate(selectedPayment.payment_date) : 'Not set'}</p>
                                 </div>
                                 <div>
                                     <Label>Payment Method</Label>
@@ -284,17 +344,15 @@ export function Payments() {
                                         <p>{selectedPayment.method}</p>
                                     </div>
                                 </div>
-                                {selectedPayment.appointment_id && (
-                                    <div>
-                                        <Label>Appointment ID</Label>
-                                        <p className="font-mono">#{selectedPayment.appointment_id}</p>
-                                    </div>
-                                )}
+                                <div>
+                                    <Label>Patient ID</Label>
+                                    <p className="font-mono">#{selectedPayment.patient_id}</p>
+                                </div>
                             </div>
 
                             <div>
                                 <Label>Description</Label>
-                                <p className="mt-1 p-3 bg-gray-50 rounded-lg">{selectedPayment.description}</p>
+                                <p className="mt-1 p-3 bg-gray-50 rounded-lg">Medical Payment</p>
                             </div>
                         </div>
                     )}
@@ -322,39 +380,39 @@ export function Payments() {
                             <div className="p-4 bg-blue-50 rounded-lg">
                                 <h4 className="font-medium mb-2">Payment Summary</h4>
                                 <div className="space-y-1 text-sm">
-                                    <p><strong>Description:</strong> {selectedPayment.description}</p>
+                                    <p><strong>Description:</strong> Medical Payment</p>
                                     <p><strong>Amount:</strong> ${selectedPayment.amount.toFixed(2)}</p>
-                                    <p><strong>Due Date:</strong> {formatDate(selectedPayment.date)}</p>
+                                    <p><strong>Due Date:</strong> {selectedPayment.payment_date ? formatDate(selectedPayment.payment_date) : 'Not set'}</p>
                                 </div>
                             </div>
 
                             <div className="space-y-3">
                                 <Label>Select Payment Method</Label>
-                                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                                <Select value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Choose payment method" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="card">Credit/Debit Card</SelectItem>
-                                        <SelectItem value="insurance">Insurance</SelectItem>
-                                        <SelectItem value="cash">Cash Payment</SelectItem>
+                                        <SelectItem value="Card">Credit/Debit Card</SelectItem>
+                                        <SelectItem value="Insurance">Insurance</SelectItem>
+                                        <SelectItem value="Cash">Cash Payment</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
 
-                            {paymentMethod === 'card' && (
+                            {paymentMethod === 'Card' && (
                                 <div className="p-3 bg-gray-50 rounded-lg text-sm text-muted-foreground">
                                     You will be redirected to a secure payment gateway to complete your card payment.
                                 </div>
                             )}
 
-                            {paymentMethod === 'insurance' && (
+                            {paymentMethod === 'Insurance' && (
                                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                                     This payment will be processed through your insurance provider.
                                 </div>
                             )}
 
-                            {paymentMethod === 'cash' && (
+                            {paymentMethod === 'Cash' && (
                                 <div className="p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700">
                                     Please visit the hospital reception to complete your cash payment.
                                 </div>

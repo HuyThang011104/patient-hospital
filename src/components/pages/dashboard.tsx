@@ -1,8 +1,11 @@
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Calendar, Clock, Shield, DollarSign, CalendarPlus, FileText } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { mockAppointments, mockPayments } from '@/utils/mock/mock-data';
+import { supabase } from '@/utils/backend/client';
+import type { IAppointment } from '@/interfaces/appointment';
+import type { IPayment } from '@/interfaces/payment';
 
 interface DashboardProps {
     onPageChange: (page: string) => void;
@@ -10,20 +13,66 @@ interface DashboardProps {
 
 export function Dashboard({ onPageChange }: DashboardProps) {
     const { user } = useAuth();
+    const [appointments, setAppointments] = useState<IAppointment[]>([]);
+    const [payments, setPayments] = useState<IPayment[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const upcomingAppointments = mockAppointments.filter(
-        apt => apt.status === 'Pending' && new Date(apt.date) >= new Date()
+    const fetchDashboardData = useCallback(async () => {
+        if (!user) return;
+
+        try {
+            setLoading(true);
+            
+            // Fetch appointments
+            const { data: appointmentsData, error: appointmentsError } = await supabase
+                .from('appointment')
+                .select(`
+                    *,
+                    doctor(full_name, department_id),
+                    shift(*),
+                    patient(*)
+                `)
+                .eq('patient_id', user.id)
+                .order('appointment_date', { ascending: false });
+
+            // Fetch payments
+            const { data: paymentsData, error: paymentsError } = await supabase
+                .from('payment')
+                .select('*')
+                .eq('patient_id', user.id)
+                .order('payment_date', { ascending: false });
+
+            if (appointmentsError) throw appointmentsError;
+            if (paymentsError) throw paymentsError;
+
+            setAppointments(appointmentsData || []);
+            setPayments(paymentsData || []);
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+            setAppointments([]);
+            setPayments([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
+
+    const upcomingAppointments = appointments.filter(
+        apt => apt.status === 'Pending' && new Date(apt.appointment_date) >= new Date()
     );
 
-    const totalVisits = mockAppointments.filter(apt => apt.status === 'Completed').length;
-    const totalPayments = mockPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    const pendingPayments = mockPayments.filter(payment => payment.status === 'Pending').length;
+    const totalVisits = appointments.filter(apt => apt.status === 'Completed').length;
+    const totalPayments = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const pendingPayments = payments.filter(payment => payment.status === 'Pending').length;
 
     const nextAppointment = upcomingAppointments.sort((a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
+        new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime()
     )[0];
 
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString: string | Date) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             weekday: 'long',
             year: 'numeric',
@@ -31,6 +80,20 @@ export function Dashboard({ onPageChange }: DashboardProps) {
             day: 'numeric'
         });
     };
+
+    if (loading) {
+        return (
+            <div className="p-6 space-y-6">
+                <div>
+                    <h1>Loading...</h1>
+                    <p className="text-muted-foreground">Loading your dashboard...</p>
+                </div>
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-6">
@@ -112,12 +175,12 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                                             <Calendar className="h-6 w-6 text-white" />
                                         </div>
                                         <div>
-                                            <h3 className="font-medium">{nextAppointment.doctor_name}</h3>
-                                            <p className="text-sm text-muted-foreground">{nextAppointment.department_name}</p>
+                                            <h3 className="font-medium">{nextAppointment.doctor?.full_name || 'Doctor'}</h3>
+                                            <p className="text-sm text-muted-foreground">Department</p>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <Clock className="h-3 w-3 text-muted-foreground" />
                                                 <span className="text-xs text-muted-foreground">
-                                                    {formatDate(nextAppointment.date)} - {nextAppointment.shift}
+                                                    {formatDate(nextAppointment.appointment_date)} - {nextAppointment.shift?.name || 'Shift'}
                                                 </span>
                                             </div>
                                         </div>
@@ -212,7 +275,7 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
-                        {mockAppointments
+                        {appointments
                             .filter(apt => apt.status === 'Completed')
                             .slice(0, 3)
                             .map((appointment) => (
@@ -224,9 +287,9 @@ export function Dashboard({ onPageChange }: DashboardProps) {
                                             </svg>
                                         </div>
                                         <div>
-                                            <p className="font-medium">{appointment.doctor_name}</p>
+                                            <p className="font-medium">{appointment.doctor?.full_name || 'Doctor'}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                {appointment.department_name} • {formatDate(appointment.date)}
+                                                Department • {formatDate(appointment.appointment_date)}
                                             </p>
                                         </div>
                                     </div>
