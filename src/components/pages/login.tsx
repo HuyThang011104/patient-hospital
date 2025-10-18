@@ -28,9 +28,6 @@ export function LoginPage() {
         address: '',
         email: '',
         password: '',
-        insurance_provider: '',
-        policy_number: '',
-        insurance_validity: ''
     });
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -258,7 +255,7 @@ export function LoginPage() {
                                         />
                                     </div>
 
-                                    <div className="border-t pt-4">
+                                    {/* <div className="border-t pt-4">
                                         <h4 className="font-medium mb-3">Insurance Information (Optional)</h4>
                                         <div className="space-y-3">
                                             <div className="space-y-2">
@@ -291,7 +288,7 @@ export function LoginPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> */}
 
                                     <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
                                         {isLoading ? 'Creating Account...' : 'Create Account'}
