@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
@@ -103,7 +104,7 @@ export function MedicalRecords() {
     };
 
     const handleDownloadPDF = (recordId: string) => {
-        toast.success('Bắt đầu tải PDF hồ sơ y tế');
+        toast.success('Phần này triển khai sau');
     };
 
     const getLabTestsForRecord = (recordId: string) => {

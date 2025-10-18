@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -28,6 +29,7 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
     const [selectedDate, setSelectedDate] = useState<Date>();
     const [selectedShift, setSelectedShift] = useState('');
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [existingAppointments, setExistingAppointments] = useState<any[]>([]);
     const { user } = useAuth();
 
     const steps = [
@@ -42,6 +44,42 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
         fetchSpecialties()
         fetchShifts()
     }, [])
+
+    useEffect(() => {
+        if (!selectedDate || !user?.id) {
+            setExistingAppointments([]);
+            return;
+        }
+
+        const checkExistingAppointments = async () => {
+            try {
+                const localDateString = selectedDate.toLocaleDateString('en-CA');
+                console.log('Fetching existing appointments for:', {
+                    patientId: user.id,
+                    localDateString
+                });
+
+                const { data, error } = await supabase
+                    .from('appointment')
+                    .select(`
+                        *,
+                        shift(*)
+                    `)
+                    .eq('patient_id', user.id)
+                    .eq('appointment_date', localDateString)
+                    .eq('status', 'Pending');
+
+                if (error) throw error;
+                console.log('Existing appointments found:', data);
+                setExistingAppointments(data || []);
+            } catch (error) {
+                console.error('Error checking existing appointments:', error);
+                setExistingAppointments([]);
+            }
+        };
+
+        checkExistingAppointments();
+    }, [selectedDate, user?.id]);
 
     const fetchDoctors = async () => {
         try {
@@ -109,14 +147,62 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
         }
     };
 
+    const checkDuplicateAppointment = async () => {
+        if (!selectedDate || !selectedShift) return false;
+
+        const localDateString = selectedDate.toLocaleDateString('en-CA');
+        const shiftId = shifts.find((shift) => shift.name === selectedShift)?.id;
+
+        console.log('Checking duplicate:', {
+            patientId: user?.id,
+            appointmentDate: localDateString,
+            shiftId,
+            shiftName: selectedShift
+        });
+
+        try {
+            const { data, error } = await supabase
+                .from('appointment')
+                .select('*')
+                .eq('patient_id', user?.id)
+                .eq('appointment_date', localDateString)
+                .eq('shift_id', shiftId)
+                .eq('status', 'Pending');
+
+            if (error) {
+                console.error('Supabase error:', error);
+                throw error;
+            }
+
+            console.log('Found existing appointments:', data);
+            const hasDuplicate = data && data.length > 0;
+            console.log('Has duplicate:', hasDuplicate);
+
+            return hasDuplicate;
+        } catch (error) {
+            console.error('Error checking duplicate appointment:', error);
+            return false;
+        }
+    };
+
     const handleConfirmAppointment = async () => {
         try {
+            // Check for duplicate appointment
+            const isDuplicate = await checkDuplicateAppointment();
+            if (isDuplicate) {
+                toast.error('Bạn đã có lịch hẹn trong ca này vào ngày đã chọn. Vui lòng chọn ca hoặc ngày khác.');
+                return;
+            }
+
+            // Convert date to local date string to avoid timezone issues
+            const localDateString = selectedDate?.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+
             const { error } = await supabase.from('appointment').insert([
                 {
                     patient_id: user?.id,
                     doctor_id: selectedDoctor,
                     shift_id: shifts.find((shift) => shift.name === selectedShift)?.id,
-                    appointment_date: selectedDate,
+                    appointment_date: localDateString,
                     status: 'Pending',
                     notes: null,
                 },
@@ -261,20 +347,44 @@ export function BookAppointment({ onPageChange }: BookAppointmentProps) {
                     </CardHeader>
                     <CardContent>
                         {selectedDate ? (
-                            <RadioGroup value={selectedShift} onValueChange={setSelectedShift}>
-                                <div className="space-y-3">
-                                    {shifts.map((shift) => (
-                                        <div key={shift.id} className="flex items-center space-x-2">
-                                            <RadioGroupItem value={shift.name} id={shift.name} />
-                                            <Label htmlFor={shift.name} className="flex items-center gap-2 cursor-pointer">
-                                                <Clock className="h-4 w-4" />
-                                                Ca {shift.name}
-                                                <Badge variant="outline">Có Sẵn</Badge>
-                                            </Label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </RadioGroup>
+                            <div>
+                                {existingAppointments.length > 0 && (
+                                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <p className="text-sm text-yellow-800">
+                                            Bạn đã có {existingAppointments.length} lịch hẹn vào ngày này. Không thể đặt trùng ca.
+                                        </p>
+                                    </div>
+                                )}
+                                <RadioGroup value={selectedShift} onValueChange={setSelectedShift}>
+                                    <div className="space-y-3">
+                                        {shifts.map((shift) => {
+                                            const hasAppointment = existingAppointments.some(apt => apt.shift_id === shift.id);
+                                            return (
+                                                <div key={shift.id} className="flex items-center space-x-2">
+                                                    <RadioGroupItem
+                                                        value={shift.name}
+                                                        id={shift.name}
+                                                        disabled={hasAppointment}
+                                                    />
+                                                    <Label
+                                                        htmlFor={shift.name}
+                                                        className={`flex items-center gap-2 cursor-pointer ${hasAppointment ? 'text-gray-400 cursor-not-allowed' : ''
+                                                            }`}
+                                                    >
+                                                        <Clock className="h-4 w-4" />
+                                                        Ca {shift.name}
+                                                        <Badge
+                                                            variant={hasAppointment ? "destructive" : "outline"}
+                                                        >
+                                                            {hasAppointment ? "Đã Đặt" : "Có Sẵn"}
+                                                        </Badge>
+                                                    </Label>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </RadioGroup>
+                            </div>
                         ) : (
                             <p className="text-muted-foreground">Vui lòng chọn ngày trước</p>
                         )}
