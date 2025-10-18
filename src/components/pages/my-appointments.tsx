@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Label } from '../ui/label';
-import { Calendar, Clock, User, MapPin, Eye, X } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Eye, X, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { IAppointment } from '@/interfaces/appointment';
 import { supabase } from '@/utils/backend/client';
@@ -82,6 +82,18 @@ export function MyAppointments() {
         }
     };
 
+    const isAppointmentPast = (appointmentDate: string) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+        const appointment = new Date(appointmentDate);
+        appointment.setHours(0, 0, 0, 0);
+        return appointment < today;
+    };
+
+    const isAppointmentExpired = (appointmentDate: string, status: string) => {
+        return status === 'Pending' && isAppointmentPast(appointmentDate);
+    };
+
     const handleViewDetails = (appointment: any) => {
         setSelectedAppointment(appointment);
         setShowDetails(true);
@@ -92,11 +104,44 @@ export function MyAppointments() {
         setShowCancelDialog(true);
     };
 
-    const confirmCancelAppointment = () => {
-        // In a real app, this would call an API
-        toast.success('Appointment cancelled successfully');
-        setShowCancelDialog(false);
-        setAppointmentToCancel(null);
+    const confirmCancelAppointment = async () => {
+        try {
+            if (!appointmentToCancel) return;
+
+            const { error } = await supabase
+                .from('appointment')
+                .update({ status: 'Cancelled' })
+                .eq('id', appointmentToCancel.id);
+
+            if (error) {
+                console.error('Error cancelling appointment:', error);
+                toast.error('Failed to cancel appointment. Please try again.');
+                return;
+            }
+
+            toast.success('Appointment cancelled successfully');
+            setShowCancelDialog(false);
+            setAppointmentToCancel(null);
+
+            // Refresh appointments list
+            const { data, error: fetchError } = await supabase
+                .from('appointment')
+                .select(`
+                    *,
+                    doctor(
+                        *,
+                        specialty(*)
+                    ),
+                    shift(*)
+                `)
+                .eq('patient_id', user?.id);
+
+            if (fetchError) throw fetchError;
+            setAppointments(data);
+        } catch (error) {
+            console.error('Error in cancel appointment:', error);
+            toast.error('An unexpected error occurred. Please try again.');
+        }
     };
     return (
         <div className="p-6 space-y-6">
@@ -184,9 +229,17 @@ export function MyAppointments() {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge className={getStatusColor(appointment.status)}>
-                                            {appointment.status}
-                                        </Badge>
+                                        <div className="flex items-center gap-2">
+                                            <Badge className={getStatusColor(appointment.status)}>
+                                                {appointment.status}
+                                            </Badge>
+                                            {isAppointmentExpired(appointment.appointment_date.toString(), appointment.status) && (
+                                                <div className="flex items-center gap-1 text-orange-600">
+                                                    <AlertTriangle className="h-3 w-3" />
+                                                    <span className="text-xs">Expired</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
@@ -198,7 +251,7 @@ export function MyAppointments() {
                                                 <Eye className="h-3 w-3 mr-1" />
                                                 View
                                             </Button>
-                                            {appointment.status === 'Pending' && (
+                                            {appointment.status === 'Pending' && !isAppointmentPast(appointment.appointment_date.toString()) && (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
@@ -207,6 +260,17 @@ export function MyAppointments() {
                                                 >
                                                     <X className="h-3 w-3 mr-1" />
                                                     Cancel
+                                                </Button>
+                                            )}
+                                            {appointment.status === 'Pending' && isAppointmentPast(appointment.appointment_date.toString()) && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    disabled
+                                                    className="text-gray-400 cursor-not-allowed"
+                                                >
+                                                    <X className="h-3 w-3 mr-1" />
+                                                    Expired
                                                 </Button>
                                             )}
                                         </div>
@@ -338,9 +402,9 @@ export function MyAppointments() {
                     {appointmentToCancel && (
                         <div className="py-4">
                             <div className="bg-gray-50 p-3 rounded-lg space-y-1">
-                                <p><strong>Doctor:</strong> {appointmentToCancel.doctor_name}</p>
+                                <p><strong>Doctor:</strong> {appointmentToCancel.doctor?.full_name}</p>
                                 <p><strong>Date:</strong> {new Date(appointmentToCancel.appointment_date).toLocaleDateString('vi-VN')}</p>
-                                <p><strong>Time:</strong> {appointmentToCancel.shift} Shift</p>
+                                <p><strong>Time:</strong> {appointmentToCancel.shift?.name} Shift</p>
                             </div>
                         </div>
                     )}
