@@ -88,43 +88,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { password, ...patientData } = userData;
 
         // 1. Kiểm tra email đã tồn tại chưa
-        const { data: existingUser } = await supabase
-            .from('patients')
+        const { data: existingUser, error: checkError } = await supabase
+            .from('patient')
             .select('id')
             .eq('email', patientData.email)
             .limit(1);
+
+        if (checkError) {
+            console.error('Error checking existing email:', checkError.message);
+            return false;
+        }
 
         if (existingUser && existingUser.length > 0) {
             console.error('Registration error: Email already exists.');
             return false;
         }
 
-        // 2. Chèn người dùng mới vào bảng 'patients'
-        const newUser: Patient & { password: string; id: string } = {
+        // 2. Chèn người dùng mới vào bảng 'patient' (không cần truyền ID, database sẽ tự tạo)
+        const newUser: Omit<Patient, 'id'> & { password: string } = {
             ...patientData,
-            id: crypto.randomUUID(), // Tạo ID duy nhất mới
             password: password, // LƯU Ý BẢO MẬT: Mật khẩu chưa được băm!
         };
 
-        const { error: insertError } = await supabase
-            .from('patients')
-            .insert(newUser);
+        const { data: insertedUser, error: insertError } = await supabase
+            .from('patient')
+            .insert(newUser)
+            .select()
+            .single();
 
-        if (insertError) {
-            console.error('Error registering patient:', insertError.message);
+        if (insertError || !insertedUser) {
+            console.error('Error registering patient:', insertError?.message);
             return false;
         }
 
         // 3. Đăng nhập người dùng sau khi đăng ký thành công
-        localStorage.setItem(USER_STORAGE_KEY, newUser.id);
+        localStorage.setItem(USER_STORAGE_KEY, insertedUser.id);
 
         // Loại bỏ password trước khi lưu vào state
-        const { password: _, ...userWithoutPassword } = newUser;
-        setUser(userWithoutPassword);
+        const { password: _, ...userWithoutPassword } = insertedUser;
+        setUser(userWithoutPassword as Patient);
         return true;
     };
 
-    // --- Hàm Đăng xuất ---
+    // --- Hàm Đăng xuất --
     const logout = () => {
         localStorage.removeItem(USER_STORAGE_KEY);
         setUser(null);
@@ -135,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!user) return false;
 
         const { error: updateError } = await supabase
-            .from('patients')
+            .from('patient')
             .update(userData)
             .eq('id', user.id); // Cập nhật dựa trên ID người dùng hiện tại
 
