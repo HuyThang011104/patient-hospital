@@ -75,11 +75,11 @@ export interface Prescription {
 
 export interface LabTest {
   id: string;
-  medical_record_id: string;
+  examination_id: string;
   test_type: string;
   result: string;
   date: string;
-  normal_range?: string;
+  price: number;
 }
 
 export interface Payment {
@@ -91,4 +91,12 @@ export interface Payment {
   status: "Pending" | "Paid" | "Cancelled";
   appointment_id?: string;
   description: string;
+}
+
+export interface Examination {
+  id: number;
+  medical_record_id: number;
+  examination_type: string;
+  details: string | null; // Sử dụng null vì trường TEXT có thể không bắt buộc hoặc rỗng
+  examination_date: Date;
 }
