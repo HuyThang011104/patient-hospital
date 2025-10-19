@@ -83,7 +83,7 @@ export function Payments() {
                     examination,
                     labTests: examLabTests,
                     totalAmount,
-                    status: totalAmount > 0 ? 'Pending' : 'Paid', // Status based on amount
+                    status: examination.status,
                     paymentDate: examination.examination_date.toString()
                 };
             });
@@ -109,7 +109,7 @@ export function Payments() {
         });
     };
 
-    const getStatusColor = (status: PaymentStatus) => {
+    const getStatusColor = (status: PaymentStatus | 'Pending' | 'Paid') => {
         switch (status) {
             case 'Pending':
                 return 'bg-yellow-100 text-yellow-800';
@@ -157,6 +157,8 @@ export function Payments() {
         setShowPaymentDialog(true);
     };
 
+    console.log("examinationPayments ", examinationPayments);
+
     const processPayment = async () => {
         if (!paymentMethod || !selectedExamination) {
             toast.error('Vui lòng chọn phương thức thanh toán');
@@ -164,30 +166,15 @@ export function Payments() {
         }
 
         try {
-            // Update examination status or create payment record
+            // Update examination status to Paid
             const { error } = await supabase
                 .from('examination')
                 .update({
-                    // You might need to add a status field to examination table
-                    // or create a payment record linking to examination
+                    status: 'Paid'
                 })
                 .eq('id', selectedExamination.examination.id);
 
             if (error) throw error;
-
-            // Optionally create a payment record in payment table
-            const { error: paymentError } = await supabase
-                .from('payment')
-                .insert({
-                    patient_id: user!.id,
-                    amount: selectedExamination.totalAmount,
-                    method: paymentMethod,
-                    status: 'Paid',
-                    date: new Date().toISOString(),
-                    description: `Thanh toán đến khám ${selectedExamination.examination.examination_type}`
-                });
-
-            if (paymentError) console.warn('Payment record creation failed:', paymentError);
 
             toast.success('Thanh toán được xử lý thành công!');
             setShowPaymentDialog(false);
