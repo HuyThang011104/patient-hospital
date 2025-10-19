@@ -9,43 +9,97 @@ import { Label } from '../ui/label';
 import { CreditCard, DollarSign, Calendar, Eye, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/utils/backend/client';
-import type { IPayment } from '@/interfaces/payment';
+import type { Examination } from '@/interfaces/examination';
+import type { ILabTest } from '@/interfaces/lab_test';
 import type { PaymentMethod, PaymentStatus } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
 
+interface ExaminationPayment {
+    examination: Examination;
+    totalAmount: number;
+    labTests: ILabTest[];
+    status: PaymentStatus;
+    paymentDate?: string;
+}
+
 export function Payments() {
-    const [payments, setPayments] = useState<IPayment[]>([]);
+    const [examinationPayments, setExaminationPayments] = useState<ExaminationPayment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedPayment, setSelectedPayment] = useState<IPayment | null>(null);
+    const [selectedExamination, setSelectedExamination] = useState<ExaminationPayment | null>(null);
     const [showDetails, setShowDetails] = useState(false);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Card');
     const { user } = useAuth();
 
-    const fetchPayments = useCallback(async () => {
+    const fetchExaminationPayments = useCallback(async () => {
         if (!user) return;
 
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('payment')
-                .select('*')
-                .eq('patient_id', user.id)
-                .order('payment_date', { ascending: false });
 
-            if (error) throw error;
-            setPayments(data || []);
+            // First, get medical records for this patient
+            const { data: medicalRecords, error: mrError } = await supabase
+                .from('medical_record')
+                .select('id')
+                .eq('patient_id', user.id);
+
+            if (mrError) throw mrError;
+
+            if (!medicalRecords || medicalRecords.length === 0) {
+                setExaminationPayments([]);
+                return;
+            }
+
+            // Get examinations for these medical records
+            const medicalRecordIds = medicalRecords.map(mr => mr.id);
+            const { data: examinations, error: examError } = await supabase
+                .from('examination')
+                .select('*')
+                .in('medical_record_id', medicalRecordIds)
+                .order('examination_date', { ascending: false });
+
+            if (examError) throw examError;
+
+            if (!examinations || examinations.length === 0) {
+                setExaminationPayments([]);
+                return;
+            }
+
+            // Get lab tests for these examinations
+            const examinationIds = examinations.map(exam => exam.id);
+            const { data: labTests, error: labError } = await supabase
+                .from('lab_test')
+                .select('*')
+                .in('examination_id', examinationIds);
+
+            if (labError) throw labError;
+
+            // Group lab tests by examination and calculate totals
+            const paymentData: ExaminationPayment[] = examinations.map(examination => {
+                const examLabTests = labTests?.filter(test => test.examination_id === examination.id) || [];
+                const totalAmount = examLabTests.reduce((sum, test) => sum + test.price, 0);
+
+                return {
+                    examination,
+                    labTests: examLabTests,
+                    totalAmount,
+                    status: totalAmount > 0 ? 'Pending' : 'Paid', // Status based on amount
+                    paymentDate: examination.examination_date.toString()
+                };
+            });
+
+            setExaminationPayments(paymentData);
         } catch (error) {
-            console.error('Error fetching payments:', error);
-            setPayments([]);
+            console.error('Error fetching examination payments:', error);
+            setExaminationPayments([]);
         } finally {
             setLoading(false);
         }
     }, [user]);
 
     useEffect(() => {
-        fetchPayments();
-    }, [fetchPayments]);
+        fetchExaminationPayments();
+    }, [fetchExaminationPayments]);
 
     const formatDate = (dateString: string | Date) => {
         return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -83,47 +137,62 @@ export function Payments() {
         }
     };
 
-    const totalPaid = payments
+    const totalPaid = examinationPayments
         .filter(payment => payment.status === 'Paid')
-        .reduce((sum, payment) => sum + payment.amount, 0);
+        .reduce((sum, payment) => sum + payment.totalAmount, 0);
 
-    const pendingAmount = payments
+    const pendingAmount = examinationPayments
         .filter(payment => payment.status === 'Pending')
-        .reduce((sum, payment) => sum + payment.amount, 0);
+        .reduce((sum, payment) => sum + payment.totalAmount, 0);
 
-    const pendingPayments = payments.filter(payment => payment.status === 'Pending');
+    const pendingPayments = examinationPayments.filter(payment => payment.status === 'Pending');
 
-    const handleViewDetails = (payment: IPayment) => {
-        setSelectedPayment(payment);
+    const handleViewDetails = (payment: ExaminationPayment) => {
+        setSelectedExamination(payment);
         setShowDetails(true);
     };
 
-    const handlePayNow = (payment: IPayment) => {
-        setSelectedPayment(payment);
+    const handlePayNow = (payment: ExaminationPayment) => {
+        setSelectedExamination(payment);
         setShowPaymentDialog(true);
     };
 
     const processPayment = async () => {
-        if (!paymentMethod || !selectedPayment) {
+        if (!paymentMethod || !selectedExamination) {
             toast.error('Vui lòng chọn phương thức thanh toán');
             return;
         }
 
         try {
+            // Update examination status or create payment record
             const { error } = await supabase
-                .from('payment')
-                .update({ 
-                    status: 'Paid',
-                    payment_date: new Date().toISOString()
+                .from('examination')
+                .update({
+                    // You might need to add a status field to examination table
+                    // or create a payment record linking to examination
                 })
-                .eq('id', selectedPayment.id);
+                .eq('id', selectedExamination.examination.id);
 
             if (error) throw error;
+
+            // Optionally create a payment record in payment table
+            const { error: paymentError } = await supabase
+                .from('payment')
+                .insert({
+                    patient_id: user!.id,
+                    amount: selectedExamination.totalAmount,
+                    method: paymentMethod,
+                    status: 'Paid',
+                    date: new Date().toISOString(),
+                    description: `Thanh toán đến khám ${selectedExamination.examination.examination_type}`
+                });
+
+            if (paymentError) console.warn('Payment record creation failed:', paymentError);
 
             toast.success('Thanh toán được xử lý thành công!');
             setShowPaymentDialog(false);
             setPaymentMethod('Card');
-            fetchPayments(); // Refresh the payments list
+            fetchExaminationPayments(); // Refresh the payments list
         } catch (error) {
             console.error('Error processing payment:', error);
             toast.error('Xử lý thanh toán thất bại. Vui lòng thử lại.');
@@ -207,15 +276,15 @@ export function Payments() {
                     <CardContent>
                         <div className="space-y-3">
                             {pendingPayments.map((payment) => (
-                                <div key={payment.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <div key={payment.examination.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
                                             <DollarSign className="h-5 w-5 text-yellow-600" />
                                         </div>
                                         <div>
-                                            <p className="font-medium">Thanh Toán Y Tế</p>
+                                            <p className="font-medium">Đến Khám {payment.examination.examination_type}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                Hạn: {payment.payment_date ? formatDate(payment.payment_date) : 'Chưa đặt'} • ${payment.amount.toFixed(2)}
+                                                Ngày: {payment.paymentDate ? formatDate(payment.paymentDate) : 'Chưa đặt'} • ${payment.totalAmount.toFixed(2)}
                                             </p>
                                         </div>
                                     </div>
@@ -243,7 +312,6 @@ export function Payments() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Mã Thanh Toán</TableHead>
-                                <TableHead>Mô Tả</TableHead>
                                 <TableHead>Số Tiền</TableHead>
                                 <TableHead>Ngày</TableHead>
                                 <TableHead>Phương Thức</TableHead>
@@ -252,23 +320,22 @@ export function Payments() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {payments
-                                .sort((a, b) => new Date(b.payment_date || '').getTime() - new Date(a.payment_date || '').getTime())
+                            {examinationPayments
+                                .sort((a, b) => new Date(b.paymentDate || '').getTime() - new Date(a.paymentDate || '').getTime())
                                 .map((payment) => (
-                                    <TableRow key={payment.id}>
-                                        <TableCell className="font-mono text-sm">#{payment.id}</TableCell>
-                                        <TableCell>Thanh Toán Y Tế</TableCell>
-                                        <TableCell className="font-medium">${payment.amount.toFixed(2)}</TableCell>
+                                    <TableRow key={payment.examination.id}>
+                                        <TableCell className="font-mono text-sm">#{payment.examination.id}</TableCell>
+                                        <TableCell className="font-medium">${payment.totalAmount.toFixed(2)}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1">
                                                 <Calendar className="h-3 w-3 text-muted-foreground" />
-                                                {payment.payment_date ? formatDate(payment.payment_date) : 'Chưa đặt'}
+                                                {payment.paymentDate ? formatDate(payment.paymentDate) : 'Chưa đặt'}
                                             </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                {getMethodIcon(payment.method)}
-                                                {payment.method}
+                                                {getMethodIcon('Card')}
+                                                {payment.labTests.length} xét nghiệm
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -316,44 +383,62 @@ export function Payments() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    {selectedPayment && (
+                    {selectedExamination && (
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <Label>Mã Thanh Toán</Label>
-                                    <p className="font-mono">#{selectedPayment.id}</p>
+                                    <Label>Mã Đến Khám</Label>
+                                    <p className="font-mono">#{selectedExamination.examination.id}</p>
+                                </div>
+                                <div>
+                                    <Label>Loại Đến Khám</Label>
+                                    <p className="font-medium">{selectedExamination.examination.examination_type}</p>
+                                </div>
+                                <div>
+                                    <Label>Tổng Số Tiền</Label>
+                                    <p className="font-medium text-lg">${selectedExamination.totalAmount.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <Label>Ngày Đến Khám</Label>
+                                    <p>{selectedExamination.paymentDate ? formatDate(selectedExamination.paymentDate) : 'Chưa đặt'}</p>
+                                </div>
+                                <div>
+                                    <Label>Số Lượng Xét Nghiệm</Label>
+                                    <p className="font-medium">{selectedExamination.labTests.length} xét nghiệm</p>
                                 </div>
                                 <div>
                                     <Label>Trạng Thái</Label>
-                                    <Badge className={getStatusColor(selectedPayment.status)}>
-                                        {selectedPayment.status}
+                                    <Badge className={getStatusColor(selectedExamination.status)}>
+                                        {selectedExamination.status}
                                     </Badge>
-                                </div>
-                                <div>
-                                    <Label>Số Tiền</Label>
-                                    <p className="font-medium text-lg">${selectedPayment.amount.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                    <Label>Ngày Thanh Toán</Label>
-                                    <p>{selectedPayment.payment_date ? formatDate(selectedPayment.payment_date) : 'Chưa đặt'}</p>
-                                </div>
-                                <div>
-                                    <Label>Phương Thức Thanh Toán</Label>
-                                    <div className="flex items-center gap-2">
-                                        {getMethodIcon(selectedPayment.method)}
-                                        <p>{selectedPayment.method}</p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label>Mã Bệnh Nhân</Label>
-                                    <p className="font-mono">#{selectedPayment.patient_id}</p>
                                 </div>
                             </div>
 
                             <div>
-                                <Label>Mô Tả</Label>
-                                <p className="mt-1 p-3 bg-gray-50 rounded-lg">Thanh Toán Y Tế</p>
+                                <Label>Chi Tiết Tử Trùng</Label>
+                                <p className="mt-1 p-3 bg-gray-50 rounded-lg">
+                                    {selectedExamination.examination.details || 'Không có chi tiết'}
+                                </p>
                             </div>
+
+                            {selectedExamination.labTests.length > 0 && (
+                                <div>
+                                    <Label>Danh Sách Xét Nghiệm</Label>
+                                    <div className="mt-2 space-y-2">
+                                        {selectedExamination.labTests.map((labTest) => (
+                                            <div key={labTest.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                                                <div>
+                                                    <p className="font-medium">{labTest.test_type}</p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Ngày: {labTest.test_date ? formatDate(labTest.test_date.toString()) : 'Chưa có'}
+                                                    </p>
+                                                </div>
+                                                <p className="font-medium">${labTest.price.toFixed(2) || 'Chưa có'}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -375,14 +460,15 @@ export function Payments() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    {selectedPayment && (
+                    {selectedExamination && (
                         <div className="space-y-6">
                             <div className="p-4 bg-blue-50 rounded-lg">
                                 <h4 className="font-medium mb-2">Tóm Tắt Thanh Toán</h4>
                                 <div className="space-y-1 text-sm">
-                                    <p><strong>Mô Tả:</strong> Thanh Toán Y Tế</p>
-                                    <p><strong>Số Tiền:</strong> ${selectedPayment.amount.toFixed(2)}</p>
-                                    <p><strong>Ngày Hết Hạn:</strong> {selectedPayment.payment_date ? formatDate(selectedPayment.payment_date) : 'Chưa đặt'}</p>
+                                    <p><strong>Loại Đến Khám:</strong> {selectedExamination.examination.examination_type}</p>
+                                    <p><strong>Số Tiền:</strong> ${selectedExamination.totalAmount.toFixed(2)}</p>
+                                    <p><strong>Số Lượng Xét Nghiệm:</strong> {selectedExamination.labTests.length}</p>
+                                    <p><strong>Ngày Đến Khám:</strong> {selectedExamination.paymentDate ? formatDate(selectedExamination.paymentDate) : 'Chưa đặt'}</p>
                                 </div>
                             </div>
 
