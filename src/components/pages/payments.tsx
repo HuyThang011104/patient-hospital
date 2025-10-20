@@ -115,10 +115,8 @@ export function Payments() {
                 return 'bg-yellow-100 text-yellow-800';
             case 'Paid':
                 return 'bg-green-100 text-green-800';
-            case 'Cancelled':
-                return 'bg-red-100 text-red-800';
             default:
-                return 'bg-gray-100 text-gray-800';
+                return 'bg-yellow-100 text-yellow-800';
         }
     };
 
@@ -142,10 +140,10 @@ export function Payments() {
         .reduce((sum, payment) => sum + payment.totalAmount, 0);
 
     const pendingAmount = examinationPayments
-        .filter(payment => payment.status === 'Pending')
+        .filter(payment => payment.status === 'Pending' || payment.status === null)
         .reduce((sum, payment) => sum + payment.totalAmount, 0);
 
-    const pendingPayments = examinationPayments.filter(payment => payment.status === 'Pending');
+    const pendingPayments = examinationPayments.filter(payment => payment.status === 'Pending' || payment.status === null);
 
     const handleViewDetails = (payment: ExaminationPayment) => {
         setSelectedExamination(payment);
@@ -327,7 +325,7 @@ export function Payments() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge className={getStatusColor(payment.status)}>
-                                                {payment.status}
+                                                {payment.status === null || payment.status === 'Pending' ? 'Pending' : 'Paid'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -340,7 +338,7 @@ export function Payments() {
                                                     <Eye className="h-3 w-3 mr-1" />
                                                     Xem
                                                 </Button>
-                                                {payment.status === 'Pending' && (
+                                                {payment.status === 'Pending' || payment.status === null ? (
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
@@ -350,7 +348,7 @@ export function Payments() {
                                                         <ExternalLink className="h-3 w-3 mr-1" />
                                                         Thanh Toán
                                                     </Button>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -396,7 +394,7 @@ export function Payments() {
                                 <div>
                                     <Label>Trạng Thái</Label>
                                     <Badge className={getStatusColor(selectedExamination.status)}>
-                                        {selectedExamination.status}
+                                        {selectedExamination.status === null || selectedExamination.status === 'Pending' ? 'Pending' : selectedExamination.status}
                                     </Badge>
                                 </div>
                             </div>
