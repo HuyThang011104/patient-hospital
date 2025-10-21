@@ -95,7 +95,7 @@ hospital-patient/
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/HuyThang011104/patient-hospital
    cd hospital-patient
    ```
 
@@ -238,6 +238,7 @@ For support and questions:
 - Create an issue in the GitHub repository
 - Refer to the documentation
 - Contact the development team
+- Sponsorship: 259441487-VPB
 
 ## 🔄 Version History
 
